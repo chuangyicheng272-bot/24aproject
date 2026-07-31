@@ -1,0 +1,34 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE personal settings
+.vs/
+.vscode/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and temporary files
+*.log
+*.tmp
+temp/
+tmp/
+
+# Optional empty/test output
+t1.json
+
+# PlatformIO generated files
+esp32-anchor/.pio/
+esp32-anchor/.cache/
