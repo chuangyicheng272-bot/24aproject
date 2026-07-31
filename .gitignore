@@ -1,6 +1,7 @@
 # Python virtual environment
 .venv/
 venv/
+env/
 
 # Python generated files
 __pycache__/
@@ -29,6 +30,21 @@ tmp/
 # Optional empty/test output
 t1.json
 
+# Flask / database
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
 # PlatformIO generated files
 esp32-anchor/.pio/
 esp32-anchor/.cache/
+
+# Arduino / ESP32 build files
+build/
+*.bin
+*.elf
+
+# Windows
+Thumbs.db
+desktop.ini
