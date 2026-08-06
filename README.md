@@ -1,22 +1,41 @@
-# UWB FastAPI Backend
+# UWB FastAPI／Flask 整合後端
 
-本專案以同一個 FastAPI app 提供兩個獨立資料模組：Anchor 只傳 UWB
-測距資料；腰帶直接傳送電量與充電狀態。YOLO 與穿戴辨識不在本模組範圍內。
+系統資料流：
 
-## 執行
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```text
+ESP32 Anchor／智慧安全腰帶
+  → FastAPI :8000（接收、驗證、設備狀態判斷）
+  → Flask :5000（3D 定位、電子圍欄、SQLite、網頁儀表板）
 ```
 
-## API
+## 本機啟動
 
-- `POST /api/anchor/ranges`：接收 Anchor 批次測距。
-- `POST /api/belt/status`：接收腰帶裝置狀態。
-- `GET /api/belt/{belt_id}/status`：查詢腰帶狀態與警示。
-- `GET /health`：健康檢查。
+安裝 `requirements.txt` 後，依序在不同終端執行：
 
-Anchor 正式格式：
+```powershell
+python app.py
+python main.py
+python safety_belt_tag_simulator.py
+python anchor_simulator.py --anchor Anchor1
+```
+
+完整定位需另開終端，以相同方式啟動 Anchor2～Anchor4。腰帶模擬器同時在
+`:5001` 提供模擬座標給 Anchor，並將電量與充電狀態送至 FastAPI。
+
+FastAPI 預設將資料轉送至 `http://127.0.0.1:5000`。可在啟動 FastAPI 前設定：
+
+```powershell
+$env:FLASK_BASE_URL = "http://192.168.2.171:5000"
+python main.py
+```
+
+未來 ESP32 應連到樹莓派的區域網路 IP，例如
+`http://<樹莓派-IP>:8000/api/anchor/ranges`，而不是 ESP32 自己的
+`127.0.0.1`。
+
+## API 與資料格式
+
+Anchor 將同一次測距循環的 `sequence_id` 原樣傳入；距離單位固定為毫米：
 
 ```json
 {
@@ -30,7 +49,10 @@ Anchor 正式格式：
 }
 ```
 
-腰帶正式格式：
+`POST /api/anchor/ranges` 接收後會以一次 HTTP 請求完整轉送至 Flask 的
+`POST /api/uwb/range`，不拆分腰帶、不轉換單位，也不在 FastAPI 計算座標。
+
+腰帶送至 `POST /api/belt/status` 的格式如下，不傳 `online`：
 
 ```json
 {
@@ -41,29 +63,14 @@ Anchor 正式格式：
 }
 ```
 
-`sequence_id` 代表一次完整測距循環；同一循環的 Anchor1～Anchor4 必須
-沿用來源提供的相同值，FastAPI 不產生或改寫它。距離及未來的座標欄位統一
-使用毫米，本 API 不做單位轉換。
+FastAPI 以實際收到資料的時間更新 `last_seen`，10 秒內視為 online，再加入
+`online` 後完整轉送至 Flask 的 `POST /api/belt/status`。查詢
+`GET /api/belt/{belt_id}/status` 時會即時計算連線狀態；電量低於 20 產生
+`battery_low`，逾時產生 `belt_offline`。
 
-FastAPI 將 `detected_belts` 拆開，逐筆 POST 到
-`http://192.168.2.171:5000/api/uwb/range`：
+Flask 未啟動或連線逾時時，FastAPI 仍保存收到的資料並回傳
+`forward_status: "forward_error"`，不會因轉送例外而崩潰。
 
-```json
-{
-  "belt_id": "BELT-001",
-  "sequence_id": 1024,
-  "anchor_id": "Anchor1",
-  "timestamp": 1781943343,
-  "distance_mm": 1820
-}
-```
+其他端點：`GET /health`（FastAPI）與 `GET /api/status`（Flask 儀表板資料）。
 
-腰帶不傳 `online`。後端以實際接收時間寫入 `last_seen`，查詢當下與
-`last_seen` 相差不超過 10 秒時為 online，否則產生 `belt_offline` 警示。
-電量低於 20 時產生 `battery_low` 警示。
-
-Flask 端必須同步接收 `belt_id`、整數 `sequence_id`、`anchor_id`、Unix
-`timestamp` 與毫米 `distance_mm`。不得在整合層轉回舊版欄位。
-
-> 舊版格式曾將裝置、穿戴與公分測距混在單一 `/api/locations` payload；
-> 該格式已停用，僅作為歷史說明。
+`legacy_uwb_simulator.py` 是舊格式工具，不供目前整合流程使用。

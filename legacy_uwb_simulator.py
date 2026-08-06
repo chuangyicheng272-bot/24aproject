@@ -1,11 +1,9 @@
 """
-此為舊版單一 UWB 模擬器。
+舊版模擬器，不供目前 FastAPI／Flask 整合流程使用。
 
 目前六終端展示不使用本程式。
-正式流程請執行：
-helmet_tag_simulator.py
-anchor_simulator.py × 4
-app.py
+正式流程請執行 safety_belt_tag_simulator.py、anchor_simulator.py × 4、
+main.py 與 app.py。
 """
 
 import math
