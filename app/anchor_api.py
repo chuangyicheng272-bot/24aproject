@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -5,13 +6,12 @@ import requests
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .config import FLASK_RANGE_URL, FORWARD_TIMEOUT_SECONDS
 from .device_judgment import MAX_DISTANCE_MM, MIN_DISTANCE_MM, is_distance_valid
 
 
 router = APIRouter(prefix="/api/anchor", tags=["anchor"])
-
-FLASK_RANGE_URL = "http://192.168.2.171:5000/api/uwb/range"
-FORWARD_TIMEOUT_SECONDS = 3
+logger = logging.getLogger(__name__)
 
 latest_anchor_reports: dict[str, dict] = {}
 anchor_report_history: list[dict] = []
@@ -58,8 +58,12 @@ def post_to_flask(body: dict) -> tuple[int | None, str | None]:
             json=body,
             timeout=FORWARD_TIMEOUT_SECONDS,
         )
+        if response.status_code >= 400:
+            logger.error("Flask range forwarding returned HTTP %s", response.status_code)
+            return response.status_code, f"Flask returned HTTP {response.status_code}"
         return response.status_code, None
     except requests.RequestException as exc:
+        logger.error("Flask range forwarding failed: %s", exc)
         return None, str(exc)
 
 
@@ -73,31 +77,27 @@ def receive_anchor_ranges(payload: AnchorRangesPayload) -> dict:
     latest_anchor_reports[f"{payload.anchor_id}:{payload.sequence_id}"] = report
     anchor_report_history.append(report)
 
-    forwards = []
     for belt_id, belt_range in payload.detected_belts.items():
-        range_payload = {
+        latest_belt_ranges[f"{belt_id}:{payload.sequence_id}:{payload.anchor_id}"] = {
             "belt_id": belt_id,
             "sequence_id": payload.sequence_id,
             "anchor_id": payload.anchor_id,
             "timestamp": payload.timestamp,
             "distance_mm": belt_range.distance_mm,
+            "server_received_at": server_received_at,
         }
-        latest_belt_ranges[
-            f"{belt_id}:{payload.sequence_id}:{payload.anchor_id}"
-        ] = {**range_payload, "server_received_at": server_received_at}
-        status_code, error = post_to_flask(range_payload)
-        forwards.append(
-            {
-                "url": FLASK_RANGE_URL,
-                "payload": range_payload,
-                "status_code": status_code,
-                "error": error,
-            }
-        )
 
-    has_error = any(item["error"] for item in forwards)
+    forward_payload = payload.model_dump()
+    status_code, error = post_to_flask(forward_payload)
     return {
-        "status": "forward_error" if has_error else "success",
+        "status": "forward_error" if error else "success",
+        "forward_status": "forward_error" if error else "success",
+        "forward_error": "Flask connection failed" if error else None,
         "data": report,
-        "flask_forwards": forwards,
+        "flask_forward": {
+            "url": FLASK_RANGE_URL,
+            "payload": forward_payload,
+            "status_code": status_code,
+            "error": error,
+        },
     }

@@ -47,15 +47,15 @@ class DeviceApiTests(unittest.TestCase):
         self.assertIn("/api/belt/{belt_id}/status", paths)
 
     @patch("app.anchor_api.post_to_flask", return_value=(200, None))
-    def test_anchor_accepts_two_belts_and_forwards_each_one(self, mock_forward):
+    def test_anchor_forwards_complete_payload_once(self, mock_forward):
         response = receive_anchor_ranges(AnchorRangesPayload(**anchor_payload()))
         self.assertEqual(response["status"], "success")
-        self.assertEqual(mock_forward.call_count, 2)
-        forwarded = [call.args[0] for call in mock_forward.call_args_list]
-        self.assertEqual(
-            {item["belt_id"] for item in forwarded}, {"BELT-001", "BELT-002"}
-        )
-        self.assertTrue(all(item["sequence_id"] == 1024 for item in forwarded))
+        mock_forward.assert_called_once_with(anchor_payload())
+        forwarded = mock_forward.call_args.args[0]
+        self.assertEqual(forwarded["sequence_id"], 1024)
+        self.assertEqual(forwarded["anchor_id"], "Anchor1")
+        self.assertEqual(forwarded["timestamp"], 1781943343)
+        self.assertEqual(forwarded["detected_belts"]["BELT-001"]["distance_mm"], 1820)
         self.assertIn("Anchor1:1024", latest_anchor_reports)
         self.assertIn("BELT-001:1024:Anchor1", latest_belt_ranges)
 
@@ -85,14 +85,15 @@ class DeviceApiTests(unittest.TestCase):
                 AnchorRangesPayload(**(anchor_payload() | {field: value}))
 
     def test_low_battery_alert(self):
-        response = receive_belt_status(
-            BeltStatusPayload(
-                belt_id="BELT-001",
-                timestamp=1781943343,
-                battery=19,
-                charging=False,
+        with patch("app.belt_api.post_to_flask", return_value=(200, None)):
+            response = receive_belt_status(
+                BeltStatusPayload(
+                    belt_id="BELT-001",
+                    timestamp=1781943343,
+                    battery=19,
+                    charging=False,
+                )
             )
-        )
         self.assertEqual(
             response["data"]["alerts"],
             [{"code": "battery_low", "message": "腰帶電量過低"}],
@@ -124,6 +125,32 @@ class DeviceApiTests(unittest.TestCase):
                 charging=False,
                 distance_mm=1000,
             )
+
+    @patch("app.belt_api.post_to_flask", return_value=(200, None))
+    def test_belt_forward_adds_online(self, mock_forward):
+        payload = BeltStatusPayload(
+            belt_id="BELT-001", timestamp=1781943343, battery=85, charging=False
+        )
+        receive_belt_status(payload)
+        mock_forward.assert_called_once_with({
+            "belt_id": "BELT-001", "timestamp": 1781943343,
+            "battery": 85, "charging": False, "online": True,
+        })
+
+    @patch("app.anchor_api.post_to_flask", return_value=(None, "connection refused"))
+    def test_forward_failure_is_reported_without_crash(self, _mock_forward):
+        response = receive_anchor_ranges(AnchorRangesPayload(**anchor_payload()))
+        self.assertEqual(response["forward_status"], "forward_error")
+        self.assertEqual(response["forward_error"], "Flask connection failed")
+
+    def test_removed_anchor_fields_are_rejected(self):
+        for field, value in (("sample_id", 7), ("distance", 100), ("worker_id", "W-1")):
+            with self.subTest(field=field), self.assertRaises(ValidationError):
+                AnchorRangesPayload(**(anchor_payload() | {field: value}))
+
+    def test_flask_base_url_comes_from_environment(self):
+        source = (Path(__file__).parents[1] / "app" / "config.py").read_text("utf-8")
+        self.assertIn('os.getenv("FLASK_BASE_URL", "http://127.0.0.1:5000")', source)
 
     def test_device_judgment_has_only_device_rules(self):
         source = (

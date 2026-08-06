@@ -9,7 +9,7 @@ import requests
 
 # safety_belt_tag_simulator.py 提供的 Tag 狀態 API。
 TAG_URL = "http://127.0.0.1:5001/api/tag/state"
-FLASK_URL = "http://127.0.0.1:5000/api/uwb/range"
+FASTAPI_URL = "http://127.0.0.1:8000/api/anchor/ranges"
 DISTANCE_ERROR_LIMIT_MM = 150.0
 
 ANCHORS = {
@@ -63,7 +63,7 @@ def run(anchor_id):
                 "timestamp": timestamp,
                 "detected_belts": detected_belts,
             }
-            response = requests.post(FLASK_URL, json=payload, timeout=5)
+            response = requests.post(FASTAPI_URL, json=payload, timeout=5)
             body = response.json()
             print(
                 f"[{anchor_id} | {anchor['level']}] sequence={sequence_id} "
@@ -73,7 +73,7 @@ def run(anchor_id):
             if response.status_code in (200, 202):
                 last_sequence_id = sequence_id
         except requests.exceptions.ConnectionError:
-            print("連線失敗：請確認 safety_belt_tag_simulator.py 與 app.py 都已啟動。")
+            print("連線失敗：請確認腰帶模擬器與 FastAPI 都已啟動。")
         except (requests.exceptions.Timeout, requests.exceptions.HTTPError):
             print("HTTP 請求逾時或失敗。")
         except (KeyError, TypeError, ValueError) as error:
