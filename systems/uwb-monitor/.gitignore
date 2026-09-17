@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Flask / database
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
+
+# Arduino / ESP32 build files
+build/
+*.bin
+*.elf
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Local runtime output
+*.log
+
+# Local backups excluded from hardware release
+/local_archive/
+/data/measurements/

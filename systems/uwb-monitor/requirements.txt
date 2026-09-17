@@ -1,0 +1,2 @@
+# Backend dependency, verified in the current environment.
+Flask==3.1.3

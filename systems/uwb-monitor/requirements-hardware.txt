@@ -1,0 +1,3 @@
+-r requirements.txt
+# Optional: required only by capture_uwb_samples.py; not installed/verified locally.
+pyserial>=3.5,<4
