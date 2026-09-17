@@ -4,7 +4,7 @@ import os
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from .pose_detector import MediaPipePoseDetector, PoseDetection, map_pose_detection_to_frame, smooth_pose_detection
 from .tracker import IouTracker, Track, box_iou
@@ -105,6 +105,7 @@ class WorkerManager:
         pose: MediaPipePoseDetector | None = None,
         tracker: IouTracker | None = None,
         ppe_interval_seconds: float | None = None,
+        event_callback: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
     ):
         self.camera_id = camera_id
         self.zone = zone
@@ -126,6 +127,7 @@ class WorkerManager:
         self.last_event_key: dict[int, tuple[str, ...]] = {}
         self.last_errors: dict[str, str] = {}
         self.last_frame_summary: dict[str, Any] = {}
+        self.event_callback = event_callback
 
     def status(self) -> dict[str, Any]:
         return {
@@ -379,19 +381,30 @@ class WorkerManager:
             return
 
         self.last_event_key[worker.track_id] = key
-        self.events.appendleft(
-            {
-                "event_id": f"evt-{int(timestamp * 1000)}-{worker.track_id}",
-                "worker_id": worker.worker_id,
-                "track_id": worker.track_id,
-                "camera_id": worker.camera_id,
-                "zone": worker.zone,
-                "risk_level": worker.risk_level,
-                "alerts": list(worker.alerts),
-                "timestamp": timestamp,
-                "wall_time": round(time.time(), 3),
-            }
-        )
+        event = {
+            "event_id": f"evt-{int(timestamp * 1000)}-{worker.track_id}",
+            "worker_id": worker.worker_id,
+            "track_id": worker.track_id,
+            "camera_id": worker.camera_id,
+            "zone": worker.zone,
+            "risk_level": worker.risk_level,
+            "alerts": list(worker.alerts),
+            "timestamp": timestamp,
+            "wall_time": round(time.time(), 3),
+        }
+        self.events.appendleft(event)
+        if self.event_callback is not None:
+            try:
+                event["safeguard_forward"] = self.event_callback(
+                    event, worker.to_dict()
+                )
+                self.last_errors.pop("safeguard", None)
+            except Exception as exc:
+                event["safeguard_forward"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+                self.last_errors["safeguard"] = str(exc)
 
     def _remove_missing_worker_states(self) -> None:
         active_ids = set(self.tracker.tracks.keys())

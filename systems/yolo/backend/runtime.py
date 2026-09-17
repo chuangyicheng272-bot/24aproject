@@ -11,10 +11,12 @@ try:
     from .env import load_env_file
     from .modules.camera import FramePacket, VideoInput, VideoInputConfig, encode_jpeg, source_kind
     from .modules.worker_manager import WorkerManager
+    from .safeguard_forwarder import SafeGuardAlertForwarder
 except ImportError:  # Allows `python app.py` from the backend directory.
     from env import load_env_file
     from modules.camera import FramePacket, VideoInput, VideoInputConfig, encode_jpeg, source_kind
     from modules.worker_manager import WorkerManager
+    from safeguard_forwarder import SafeGuardAlertForwarder
 
 try:
     import cv2
@@ -106,10 +108,12 @@ class SafetyRuntime:
         self.result_lock = threading.Lock()
         self.latest_result: dict[str, Any] | None = None
         self.latest_workers: list[dict[str, Any]] = []
+        self.safeguard_forwarder = SafeGuardAlertForwarder()
         self.worker_manager = WorkerManager(
-            camera_id="CAM-01",
-            zone="預設監控區",
+            camera_id=os.environ.get("CAMERA_ID", "CAM-01"),
+            zone=os.environ.get("CAMERA_LOCATION", "預設監控區"),
             fps=self._analysis_fps(),
+            event_callback=self.safeguard_forwarder.dispatch,
         )
 
     def configure_camera(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -306,6 +310,7 @@ class SafetyRuntime:
                 for worker in status["workers"]
                 if worker["risk_level"] != "normal"
             ],
+            "safeguard_forward": self.safeguard_forwarder.status(),
         }
 
     def _process_packet(self, packet: FramePacket) -> dict[str, Any]:

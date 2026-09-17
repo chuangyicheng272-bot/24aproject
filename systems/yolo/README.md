@@ -55,16 +55,16 @@ copy frontend\.env.example frontend\.env.local
 python -m backend.app
 ```
 
-後端頁面：
+後端頁面（整合版預設使用 `8001`，避免與 SafeGuard 的 `5000` 衝突）：
 
 ```text
-http://127.0.0.1:5000/
+http://127.0.0.1:8001/
 ```
 
 即時串流：
 
 ```text
-http://127.0.0.1:5000/api/cameras/stream
+http://127.0.0.1:8001/api/cameras/stream
 ```
 
 ## 啟動前端
@@ -130,6 +130,12 @@ CAMERA_TARGET_FPS=30.0
 INFERENCE_FPS=15.0
 PPE_INTERVAL_SECONDS=2.0
 STREAM_JPEG_QUALITY=45
+CAMERA_ID=CAM-01
+CAMERA_LOCATION=預設監控區
+YOLO_BACKEND_PORT=8001
+SAFEGUARD_FORWARD_ENABLED=true
+SAFEGUARD_BASE_URL=http://127.0.0.1:5000
+SAFEGUARD_IOT_API_KEY=與 SafeGuard 的 IOT_API_KEY 相同
 ```
 
 - `PERSON_MODEL_PATH`：人員偵測模型
@@ -140,6 +146,12 @@ STREAM_JPEG_QUALITY=45
 - `INFERENCE_FPS`：YOLO 與 MediaPipe 每秒更新次數，數值越高越流暢，但越吃效能
 - `PPE_INTERVAL_SECONDS`：PPE 模型更新間隔；拉長可讓 MediaPipe 更新更快
 - `STREAM_JPEG_QUALITY`：後端串流壓縮品質，數值越高畫質越好但資料量越大
+- `SAFEGUARD_BASE_URL`：SafeGuard 主網站網址；發生新警報時會送到 `/api/iot/camera`
+- `SAFEGUARD_IOT_API_KEY`：若 SafeGuard 有設定 `IOT_API_KEY`，此處必須填相同值
+
+YOLO 只會在同一人員的警報組合改變時排入一次轉送，不會每一幀重複通知。
+跌倒、揮手求救、步伐不穩、奔跑及 PPE 違規會轉成 SafeGuard 即時危險警報；
+SafeGuard 無法連線時只會留下失敗紀錄，不會中斷攝影機辨識。
 
 `INFERENCE_FPS=15.0` 是目標值，實際能否穩定達到 15 FPS 取決於電腦效能、模型大小、影像來源延遲與目前畫面人數。
 

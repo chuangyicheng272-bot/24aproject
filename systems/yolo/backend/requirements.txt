@@ -8,3 +8,4 @@ torchvision==0.17.2
 ultralytics==8.2.103
 mediapipe==0.10.35
 Pillow==12.0.0
+requests>=2.32.0

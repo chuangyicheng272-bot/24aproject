@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from flask import Flask, Response, jsonify
 
 try:
@@ -675,4 +677,9 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True, threaded=True)
+    app.run(
+        host=os.environ.get("YOLO_BACKEND_HOST", "127.0.0.1"),
+        port=int(os.environ.get("YOLO_BACKEND_PORT", "8001")),
+        debug=True,
+        threaded=True,
+    )
