@@ -150,7 +150,7 @@ class DeviceApiTests(unittest.TestCase):
 
     def test_flask_base_url_comes_from_environment(self):
         source = (Path(__file__).parents[1] / "app" / "config.py").read_text("utf-8")
-        self.assertIn('os.getenv("FLASK_BASE_URL", "http://127.0.0.1:5000")', source)
+        self.assertIn('os.getenv("FLASK_BASE_URL", "http://127.0.0.1:5002")', source)
 
     def test_device_judgment_has_only_device_rules(self):
         source = (

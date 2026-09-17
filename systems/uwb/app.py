@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from collections import deque
 from datetime import datetime
@@ -7,6 +8,8 @@ from threading import Lock
 
 import requests
 from flask import Flask, jsonify, render_template_string, request
+
+from safeguard_forwarder import forward_uwb_position
 
 app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
@@ -597,6 +600,9 @@ def process_single_anchor_range(data):
                 )
                 belt = get_belt(conn, belt_id)
                 assessment = evaluate_belt(belt, get_danger_zones(conn))
+            safeguard_forward = forward_uwb_position(
+                belt, position, assessment, timestamp=now_text()
+            )
             results[belt_id] = {
                 "status": "calculated",
                 "belt_id": belt_id,
@@ -610,6 +616,7 @@ def process_single_anchor_range(data):
                 "tracking_difference_mm": tracking_difference,
                 "position_spread_mm": spread,
                 "assessment": assessment,
+                "safeguard_forward": safeguard_forward,
             }
         except ValueError as error:
             results[belt_id] = {"status": "error", "error": str(error)}
@@ -700,7 +707,16 @@ def receive_belt_status():
         )
         belt = get_belt(conn, values["belt_id"])
         assessment = evaluate_belt(belt, get_danger_zones(conn))
-    return jsonify({"status": "updated", "belt": belt, "assessment": assessment})
+    position = {axis: belt[axis] for axis in ("x", "y", "z")}
+    safeguard_forward = forward_uwb_position(
+        belt, position, assessment, timestamp=received_at
+    )
+    return jsonify({
+        "status": "updated",
+        "belt": belt,
+        "assessment": assessment,
+        "safeguard_forward": safeguard_forward,
+    })
 
 
 @app.patch("/api/belt/<belt_id>")
@@ -891,4 +907,9 @@ PAGE = """
 init_db()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("UWB_FLASK_PORT", "5002")),
+        debug=True,
+        use_reloader=False,
+    )

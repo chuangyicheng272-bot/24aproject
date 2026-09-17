@@ -5,12 +5,14 @@
 ```text
 ESP32 Anchor／智慧安全腰帶
   → FastAPI :8000（接收、驗證、設備狀態判斷）
-  → Flask :5000（3D 定位、電子圍欄、SQLite、網頁儀表板）
+  → UWB Flask :5002（3D 定位、電子圍欄、SQLite）
+  → SafeGuard :5000（人員位置、危險警報、LINE、管理儀表板）
 ```
 
 ## 本機啟動
 
-安裝 `requirements.txt` 後，依序在不同終端執行：
+安裝 `requirements.txt` 後，先啟動專案根目錄的 SafeGuard，再於本資料夾
+依序在不同終端執行：
 
 ```powershell
 python app.py
@@ -22,12 +24,20 @@ python anchor_simulator.py --anchor Anchor1
 完整定位需另開終端，以相同方式啟動 Anchor2～Anchor4。腰帶模擬器同時在
 `:5001` 提供模擬座標給 Anchor，並將電量與充電狀態送至 FastAPI。
 
-FastAPI 預設將資料轉送至 `http://127.0.0.1:5000`。可在啟動 FastAPI 前設定：
+FastAPI 預設將原始測距資料轉送至 UWB Flask 的
+`http://127.0.0.1:5002`。UWB Flask 完成定位後，會再將人員位置轉送至
+SafeGuard 的 `http://127.0.0.1:5000/api/iot/uwb`。可在啟動前設定：
 
 ```powershell
-$env:FLASK_BASE_URL = "http://192.168.2.171:5000"
+$env:FLASK_BASE_URL = "http://127.0.0.1:5002"
+$env:SAFEGUARD_BASE_URL = "http://127.0.0.1:5000"
+$env:SAFEGUARD_IOT_API_KEY = "與 SafeGuard 的 IOT_API_KEY 相同"
 python main.py
 ```
+
+若 SafeGuard 尚未啟動，UWB 定位仍會照常完成，API 回應中的
+`safeguard_forward.status` 會顯示 `failed`，不會讓 UWB 服務停止。若暫時不需
+轉送，可在啟動 UWB Flask 前設定 `$env:SAFEGUARD_FORWARD_ENABLED="false"`。
 
 未來 ESP32 應連到樹莓派的區域網路 IP，例如
 `http://<樹莓派-IP>:8000/api/anchor/ranges`，而不是 ESP32 自己的
