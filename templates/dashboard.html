@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% block content %}
+<main class="page dashboard dashboard-v2">
+  <div class="dash-head">
+    <div>
+      <h1>系統總覽 (Dashboard)</h1>
+    </div>
+    <div class="dash-actions">
+      {% if is_admin %}
+        <a class="manage-users-link" href="{{ url_for('users') }}">👥 管理帳戶</a>
+        <a class="manage-users-link" href="{{ url_for('database_report') }}">🗄 SQLite 資料庫</a>
+        <a class="manage-users-link" href="{{ url_for('system_status') }}">🚨 即時危險警報</a>
+      {% endif %}
+      <button type="button" class="refresh-link" onclick="loadDashboardPage()">重新整理 ↻</button>
+    </div>
+  </div>
+
+  <section class="dash-summary">
+    <article class="summary-box">
+      <span>設備人員</span>
+      <strong id="summaryPeople">--</strong>
+    </article>
+    <article class="summary-box">
+      <span>PPE 穿戴率</span>
+      <strong id="summaryPpeRate">--</strong>
+    </article>
+    <article class="summary-box">
+      <span>點名合計</span>
+      <strong id="summaryAttendance">--</strong>
+    </article>
+  </section>
+
+  <p class="dash-legend">各系統連線狀態：
+    <span class="status-chip"><span class="dot green"></span>正常</span>
+    <span class="status-chip"><span class="dot red"></span>離線</span>
+    <span class="status-chip"><span class="dot gray"></span>異常</span>
+  </p>
+
+  <section class="two-pane-layout">
+    <div class="dash-panel">
+      <div class="dash-panel-title">👥 人員管理</div>
+
+      <article class="dash-card device-card">
+        <div class="dash-card-icon blue">📷</div>
+        <div class="dash-card-content">
+          <h3>監控設備</h3>
+          <p>監控中攝影機：<span id="cameraCount">0</span> 支</p>
+          <p>攝影機狀態：<span id="cameraStatusDot" class="dot gray"></span><span id="cameraStatusText">尚未新增</span></p>
+          <a class="page-link" href="{{ url_for('monitoring_devices') }}">查看詳細內容 →</a>
+        </div>
+        <div class="dash-card-sideicon">🎥</div>
+      </article>
+
+      <article class="dash-card list-card">
+        <div class="dash-card-icon blue">☰</div>
+        <div class="dash-card-content full-width">
+          <h3>人員清單</h3>
+          <div id="dashboardPeopleList" class="device-list">
+            <div class="device-row"><span>載入中...</span></div>
+          </div>
+          <a class="page-link" href="{{ url_for('people') }}">前往人員管理 →</a>
+        </div>
+      </article>
+
+      <article class="dash-card device-card">
+        <div class="dash-card-icon blue">📡</div>
+        <div class="dash-card-content">
+          <h3>設定區域</h3>
+          <p>建立區域並管理各區域的 UWB 基站</p>
+          <a class="page-link" href="{{ url_for('base_stations') }}">前往設定區域 →</a>
+        </div>
+        <div class="dash-card-sideicon">📍</div>
+      </article>
+    </div>
+
+    <div class="dash-panel">
+      <div class="dash-panel-title">🔗 所有連線系統 (Connected Systems)</div>
+
+      <article class="dash-card system-card">
+        <div class="dash-card-icon pink">🛡️</div>
+        <div class="dash-card-content">
+          <h3>UWB 電子圍籬系統</h3>
+          <p>狀態：<span id="uwbSystemDot" class="dot green"></span><span id="uwbSystemText">系統連線正常</span></p>
+          <a class="page-link" href="{{ url_for('site_map') }}">開啟 UWB 區域監看 →</a>
+        </div>
+        <div class="arrow-mark">›</div>
+      </article>
+
+      <article class="dash-card system-card">
+        <div class="dash-card-icon pink">🎯</div>
+        <div class="dash-card-content">
+          <h3>Yolo (影像辨識系統)</h3>
+          <p>狀態：<span id="yoloSystemDot" class="dot green"></span><span id="yoloSystemText">攝影機辨識中</span></p>
+          <a class="page-link" href="{{ url_for('yolo') }}">開啟 YOLO 串流監看 →</a>
+        </div>
+        <div class="arrow-mark">›</div>
+      </article>
+
+      <article class="dash-card system-card">
+        <div class="dash-card-icon pink">💬</div>
+        <div class="dash-card-content">
+          <h3>LINE Bot / 通知系統</h3>
+          <a class="page-link" href="https://access.line.me/oauth2/v2.1/login?returnUri=%2Foauth2%2Fv2.1%2Fauthorize%2Fconsent%3Fresponse_type%3Dcode%26client_id%3D1576775644%26redirect_uri%3Dhttps%253A%252F%252Faccount.line.biz%252Flogin%252Fline-callback%253FredirectUri%253Dhttps%25253A%25252F%25252Fdevelopers.line.biz%25252Fconsole%25252F%2526disableLineAutoLogin%253Dfalse%26scope%3Dprofile%26state%3DlhjW6EfzYovDzDCC5MZCTYlsNadP1Xt&amp;loginChannelId=1576775644&amp;loginState=69lRKuJAP4ku8myOxV3xKU#/" target="_blank" rel="noopener noreferrer">前往設定頁面 →</a>
+        </div>
+        <div class="arrow-mark">›</div>
+      </article>
+
+      <article class="dash-card system-card">
+        <div class="dash-card-icon pink">➕</div>
+        <div class="dash-card-content">
+          <h3>MQTT / API 服務</h3>
+          <p>HTTP API：<span id="httpApiDot" class="dot green"></span><span id="httpApiText">正常</span></p>
+          <p>MQTT：<span id="mqttSystemDot" class="dot gray"></span><span id="mqttSystemText">未啟用</span></p>
+          <a class="page-link" href="/api/communication/status">前往 API 設定 →</a>
+        </div>
+        <div class="arrow-mark">›</div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<script>
+async function dashboardFetch(url){
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('load failed');
+  return response.json();
+}
+
+function setStatus(dotId, textId, ok, okText, offText='未啟用') {
+  const dot = document.getElementById(dotId);
+  const text = document.getElementById(textId);
+  if (!dot || !text) return;
+  dot.className = 'dot ' + (ok ? 'green' : 'gray');
+  text.textContent = ok ? okText : offText;
+}
+
+function renderPeopleList(people) {
+  const peopleList = document.getElementById('dashboardPeopleList');
+  if (!people.length) {
+    peopleList.innerHTML = `
+      <div class="device-row empty-row">
+        <span>目前尚無人員資料</span>
+      </div>
+    `;
+    return;
+  }
+  peopleList.innerHTML = people.slice(0, 6).map(person => {
+    const status = person.device_status || '等待資料';
+    const good = status === '連線中';
+    return `
+    <div class="device-row">
+      <span class="device-name">👤 ${person.employee_name || '未綁定'}</span>
+      <span class="device-status ${good ? 'good' : 'warn'}"><span class="dot ${good ? 'green' : 'orange'}"></span>${status}</span>
+    </div>
+  `;
+  }).join('');
+}
+
+async function loadDashboardPage(){
+  try {
+    const [summary, people, communication] = await Promise.all([
+      dashboardFetch('/api/summary'),
+      dashboardFetch('/api/people'),
+      dashboardFetch('/api/communication/status')
+    ]);
+
+    document.getElementById('summaryPeople').textContent = summary.people ?? people.length;
+    document.getElementById('summaryAttendance').textContent = summary.people ?? people.length;
+    const cameraCount = summary.cameras ?? 0;
+    document.getElementById('cameraCount').textContent = cameraCount;
+    setStatus(
+      'cameraStatusDot',
+      'cameraStatusText',
+      (summary.cameras_online ?? 0) > 0,
+      '正常',
+      cameraCount ? '等待連線' : '尚未新增'
+    );
+
+    const peopleWithData = people.filter(p => p.device_status !== '等待資料' && p.last_seen);
+    const ppeGood = peopleWithData.filter(p => p.helmet && p.vest).length;
+    const ppeRate = peopleWithData.length ? Math.round((ppeGood / peopleWithData.length) * 100) : 0;
+    document.getElementById('summaryPpeRate').textContent = ppeRate + '%';
+
+    renderPeopleList(people);
+
+    setStatus('uwbSystemDot', 'uwbSystemText', !!communication?.uwb?.http, '系統連線正常', '未連線');
+    setStatus('yoloSystemDot', 'yoloSystemText', !!communication?.camera?.http, '攝影機辨識中', '未連線');
+    setStatus('lineSystemDot', 'lineSystemText', !!communication?.line?.configured, '已連線', '未設定');
+    setStatus('httpApiDot', 'httpApiText', true, '正常', '異常');
+    setStatus('mqttSystemDot', 'mqttSystemText', !!communication?.uwb?.mqtt_enabled, '正常', '未啟用');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+loadDashboardPage();
+setInterval(loadDashboardPage, 15000);
+</script>
+{% endblock %}

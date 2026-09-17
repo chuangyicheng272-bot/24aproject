@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}登入｜SafeGuard{% endblock %}
+{% block content %}
+<main class="login-page">
+  <section class="login-card">
+    <div class="login-logo"><span class="shield">✓</span><strong>SafeGuard</strong></div>
+    <h1>登入系統</h1>
+    <p class="muted">請輸入管理員提供的帳號與密碼。</p>
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <form method="post">
+      <label>帳號 (Account)</label>
+      <div class="input-wrap">
+        <span>✉</span>
+        <input name="account" required placeholder="輸入使用者帳號" autocomplete="username">
+      </div>
+      <div class="password-label">
+        <label>密碼 (Password)</label>
+        <button type="button" class="link-button" onclick="openResetDialog()">忘記密碼？</button>
+      </div>
+      <div class="input-wrap">
+        <span>▣</span>
+        <input name="password" type="password" required placeholder="輸入使用者密碼" autocomplete="current-password">
+      </div>
+      <button class="login-button">登入　→</button>
+    </form>
+    <p class="demo-note">示範帳號：admin　密碼：admin123</p>
+  </section>
+</main>
+
+<dialog id="resetDialog">
+  <form method="dialog" id="resetForm">
+    <h2>忘記密碼</h2>
+    <p class="dialog-note">輸入帳號與管理員設定的電子郵件，系統會寄送 10 分鐘有效的重設連結。</p>
+    <label>帳號<input id="resetAccount" required autocomplete="username" placeholder="輸入使用者帳號"></label>
+    <label>電子郵件<input id="resetEmail" type="email" required autocomplete="email" placeholder="例如 c113118118@nkust.edu.tw"></label>
+    <p class="reset-security-note">為保護帳戶安全，不論資料是否相符，畫面都會顯示相同結果。</p>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button class="primary" value="default" onclick="requestPasswordReset(event)">寄送重設連結</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

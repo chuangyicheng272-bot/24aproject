@@ -1,0 +1,24 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 密碼與環境設定
+.env
+*.secret
+
+# SQLite 資料庫
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# 使用者上傳檔案
+uploads/
+
+# 測試與暫存檔
+reports/qa/
+reports/render-temp/
+.DS_Store
+Thumbs.db

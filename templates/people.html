@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}人員管理｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='people.css', v='20260726-1') }}">{% endblock %}
+{% block content %}
+<main class="page">
+  <a class="back" href="{{ url_for('dashboard') }}">返回</a>
+  <section class="panel">
+    <div class="panel-title split">
+      <div>
+        <h2>人員管理</h2>
+        <span class="muted">新增時只需姓名與裝置，其他資料由系統自動更新</span>
+      </div>
+      <div class="device-actions">
+        <a class="secondary download-button" href="{{ url_for('sample_people_csv') }}">下載匯入範例</a>
+        <label class="secondary upload-button">匯入 CSV
+          <input id="peopleImportFile" type="file" accept=".csv,text/csv" onchange="importPeopleFile()">
+        </label>
+        <button class="primary" onclick="openDeviceForm()">＋ 新增人員</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="people-device-table">
+        <thead>
+          <tr>
+            <th>員工姓名</th>
+            <th>裝置名稱</th>
+            <th>位置</th>
+            <th>電量</th>
+            <th>風險</th>
+            <th>裝置狀態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="peopleRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="deviceDialog">
+  <form method="dialog" id="deviceForm">
+    <h2 id="deviceDialogTitle">新增人員</h2>
+    <p class="dialog-note">輸入員工姓名並綁定裝置名稱。座標、電量、風險及狀態會由外部資料自動更新。</p>
+    <input id="editPersonId" type="hidden">
+    <label>員工姓名
+      <input id="employeeName" required placeholder="例如 王小明" autocomplete="off">
+    </label>
+    <label>裝置名稱
+      <input id="deviceName" list="deviceNameOptions" required placeholder="例如 Helmet Tag W-004" autocomplete="off">
+      <datalist id="deviceNameOptions"></datalist>
+    </label>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button id="saveDeviceButton" class="primary" value="default" onclick="saveDevice(event)">新增人員</button>
+    </div>
+  </form>
+</dialog>
+<script>
+  loadPeople();
+  setInterval(loadPeople, 5000);
+</script>
+{% endblock %}

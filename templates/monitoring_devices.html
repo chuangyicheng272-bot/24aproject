@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}監控設備管理｜SafeGuard{% endblock %}
+{% block content %}
+<main class="page">
+  <a class="back" href="{{ url_for('dashboard') }}">返回</a>
+  <section class="panel monitoring-panel">
+    <div class="panel-title split">
+      <div>
+        <h2>監控設備管理</h2>
+        <span class="muted">管理攝影機裝置與安裝位置</span>
+      </div>
+      <button class="primary" onclick="openMonitoringDeviceForm()">＋ 新增監控設備</button>
+    </div>
+    <div class="table-scroll">
+      <table class="monitoring-device-table">
+        <thead>
+          <tr>
+            <th>裝置編號</th>
+            <th>位置</th>
+            <th>裝置狀態</th>
+            <th>最後更新</th>
+            <th>串流網址</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="monitoringDeviceRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="monitoringDeviceDialog">
+  <form method="dialog" id="monitoringDeviceForm">
+    <h2 id="monitoringDeviceDialogTitle">新增監控設備</h2>
+    <p class="dialog-note">建立攝影機裝置並設定安裝位置。</p>
+    <input id="editMonitoringDeviceId" type="hidden">
+    <label>裝置編號
+      <input id="monitoringDeviceId" required maxlength="50" placeholder="例如 CAM-01" autocomplete="off">
+    </label>
+    <label>位置
+      <input id="monitoringDeviceLocation" required maxlength="100" placeholder="例如 A 棟 1 樓入口" autocomplete="off">
+    </label>
+    <label>串流網址（選填）
+      <input id="monitoringDeviceStreamUrl" type="url" maxlength="500" placeholder="例如 http://192.168.1.20:8080/video" autocomplete="off">
+    </label>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button id="saveMonitoringDeviceButton" class="primary" value="default" onclick="saveMonitoringDevice(event)">新增設備</button>
+    </div>
+  </form>
+</dialog>
+<script>
+  loadMonitoringDevices();
+  setInterval(loadMonitoringDevices, 5000);
+</script>
+{% endblock %}

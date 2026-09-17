@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% block title %}即時危險警報｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='system-status.css', v='20260816-3') }}">{% endblock %}
+{% block content %}
+<main class="page safety-alert-page">
+  <a class="safety-alert-back" href="{{ url_for('dashboard') }}">← 返回儀表板</a>
+
+  <section class="safety-alert-panel" aria-labelledby="safetyAlertTitle">
+    <header class="safety-alert-header">
+      <div>
+        <h1 id="safetyAlertTitle">即時危險警報</h1>
+        <p>集中查看 YOLO 影像辨識與 UWB 電子圍籬偵測的危險事件</p>
+      </div>
+      <div class="safety-alert-header-actions">
+        <span class="line-connection-status checking" id="lineConnectionStatus">LINE：檢查中</span>
+        <button class="line-test-button" id="lineTestButton" type="button" onclick="testLineAlert()">傳送 LINE 測試</button>
+        <button class="safety-refresh-button" id="safetyRefreshButton" type="button" onclick="loadSafetyAlerts()">↻ 重新整理</button>
+      </div>
+    </header>
+
+    <div class="safety-alert-tools">
+      <div class="safety-tabs" role="tablist" aria-label="警報狀態">
+        <button class="safety-tab active" id="openAlertTab" type="button" role="tab" aria-selected="true" onclick="setSafetyView('open')">
+          未處理警報 <strong id="safetyOpenCount">0</strong>
+        </button>
+        <button class="safety-tab" id="resolvedAlertTab" type="button" role="tab" aria-selected="false" onclick="setSafetyView('resolved')">
+          已完成事件 <strong id="safetyResolvedCount">0</strong>
+        </button>
+      </div>
+      <div class="safety-filters">
+        <label class="safety-search">
+          <span>⌕</span>
+          <input id="safetySearchInput" type="search" placeholder="搜尋事件、設備或位置" oninput="scheduleSafetySearch()">
+        </label>
+        <select id="safetySourceFilter" aria-label="來源篩選" onchange="loadSafetyAlerts()">
+          <option value="all">全部來源</option>
+          <option value="YOLO">YOLO 影像辨識</option>
+          <option value="UWB">UWB 電子圍籬</option>
+        </select>
+        <select id="safetyDaysFilter" aria-label="日期篩選" onchange="loadSafetyAlerts()">
+          <option value="0">全部日期</option>
+          <option value="7">最近 7 天</option>
+          <option value="30" selected>最近 30 天</option>
+          <option value="90">最近 90 天</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="safety-alert-table-wrap">
+      <table class="safety-alert-table">
+        <thead id="safetyAlertHead"></thead>
+        <tbody id="safetyAlertRows">
+          <tr><td colspan="8" class="safety-empty">正在載入危險警報…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="safety-alert-legend">
+      <span><i class="legend-dot emergency"></i>緊急</span>
+      <span><i class="legend-dot serious"></i>嚴重</span>
+      <span><i class="legend-dot attention"></i>注意</span>
+      <small id="safetyFooterNote">頁面每 15 秒自動更新</small>
+    </footer>
+  </section>
+</main>
+
+<dialog class="safety-dialog" id="resolveSafetyDialog">
+  <form id="resolveSafetyForm">
+    <button class="safety-dialog-close" type="button" aria-label="關閉" onclick="closeResolveDialog()">×</button>
+    <span class="safety-dialog-kicker">完成事件</span>
+    <h2>記錄事件處理結果</h2>
+    <p id="resolveSafetySummary"></p>
+    <label for="resolutionNote">處理備註</label>
+    <textarea id="resolutionNote" maxlength="500" required placeholder="例如：已確認人員安全，完成現場紀錄"></textarea>
+    <div class="safety-dialog-actions">
+      <button class="safety-dialog-cancel" type="button" onclick="closeResolveDialog()">取消</button>
+      <button class="safety-dialog-submit" type="submit">確認完成</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="safety-dialog safety-detail-dialog" id="safetyDetailDialog">
+  <div>
+    <button class="safety-dialog-close" type="button" aria-label="關閉" onclick="document.getElementById('safetyDetailDialog').close()">×</button>
+    <span class="safety-dialog-kicker">事件詳情</span>
+    <h2 id="detailSafetyMessage"></h2>
+    <dl id="detailSafetyFields"></dl>
+    <div class="safety-dialog-actions">
+      <button class="safety-dialog-submit" type="button" onclick="document.getElementById('safetyDetailDialog').close()">關閉</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+let safetyView = 'open';
+let safetyAlerts = [];
+let resolveAlertId = null;
+let safetySearchTimer = null;
+const requestedSafetyAlertId = Number(new URLSearchParams(window.location.search).get('alert')) || 0;
+let requestedSafetyAlertOpened = false;
+
+function escapeSafetyText(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+}
+
+function formatSafetyTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-TW', {
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+  }).format(date);
+}
+
+function safetySourceView(alert) {
+  const source = String(alert.source_system || '').toUpperCase();
+  if (source === 'YOLO') return {icon:'●', label:'YOLO 影像辨識', href:`/yolo?device=${encodeURIComponent(alert.device_id || '')}`, action:'查看影像'};
+  if (source === 'UWB') return {icon:'◉', label:'UWB 電子圍籬', href:`/site-map?area=${encodeURIComponent(alert.location || '')}`, action:'查看位置'};
+  return {icon:'!', label:alert.source_system || '其他系統', href:'#', action:'查看詳情'};
+}
+
+function renderSafetyHead() {
+  const head = document.getElementById('safetyAlertHead');
+  if (safetyView === 'resolved') {
+    head.innerHTML = `<tr><th>完成時間</th><th>來源系統</th><th>區域／設備</th><th>事件內容</th><th>處理人員</th><th>處理備註</th><th>操作</th></tr>`;
+  } else {
+    head.innerHTML = `<tr><th>發生時間</th><th>來源系統</th><th>區域／設備</th><th>危險事件</th><th>等級</th><th>狀態</th><th>LINE 通知</th><th>操作</th></tr>`;
+  }
+}
+
+function renderLineDelivery(alert) {
+  const views = {
+    sent: {label:'已送出', className:'sent'}, failed: {label:'發送失敗', className:'failed'},
+    not_configured: {label:'尚未設定', className:'not-configured'}, sending: {label:'傳送中', className:'sending'},
+    not_sent: {label:'尚未派送', className:'not-sent'}
+  };
+  const view = views[alert.line_status] || views.not_sent;
+  const retryable = ['failed','not_configured','not_sent'].includes(alert.line_status);
+  const attempts = Number(alert.line_attempts) > 0 ? `<small>嘗試 ${Number(alert.line_attempts)} 次</small>` : '';
+  const retry = retryable ? `<button class="line-retry-button" type="button" onclick="retryLineAlert(${Number(alert.id)},this)">重新傳送</button>` : '';
+  return `<div class="line-delivery" title="${escapeSafetyText(alert.line_failure_reason || '')}"><em class="line-delivery-status ${view.className}">${view.label}</em>${attempts}${retry}</div>`;
+}
+
+function renderAcknowledgement(alert) {
+  if (alert.acknowledged_at) {
+    return `<div class="safety-acknowledgement"><em class="safety-status acknowledged">LINE 已接收</em><small>${escapeSafetyText(alert.acknowledged_by || 'LINE 使用者')}・${escapeSafetyText(formatSafetyTime(alert.acknowledged_at))}</small></div>`;
+  }
+  return `<div class="safety-acknowledgement"><em class="safety-status open">等待接收</em><small>警報尚未被確認</small></div>`;
+}
+
+function renderOpenAlerts(alerts) {
+  const severityLabels = {emergency:'緊急', serious:'嚴重', attention:'注意'};
+  return alerts.map(alert => {
+    const source = safetySourceView(alert);
+    const severity = severityLabels[alert.severity] ? alert.severity : 'attention';
+    const repeated = Number(alert.occurrences) > 1 ? `・重複 ${Number(alert.occurrences)} 次` : '';
+    return `<tr data-alert-id="${Number(alert.id)}">
+      <td class="safety-time">${escapeSafetyText(formatSafetyTime(alert.occurred_at))}</td>
+      <td><div class="safety-source"><i class="${alert.source_system === 'YOLO' ? 'yolo' : 'uwb'}">${source.icon}</i><strong>${escapeSafetyText(source.label)}</strong></div></td>
+      <td><strong class="safety-location">${escapeSafetyText(alert.location || '未設定位置')}</strong><small>${escapeSafetyText(alert.device_id || '—')}</small></td>
+      <td><strong class="safety-message">${escapeSafetyText(alert.message)}</strong><small>${escapeSafetyText((alert.detail || '') + repeated)}</small></td>
+      <td><em class="safety-severity ${severity}">${severityLabels[severity]}</em></td>
+      <td>${renderAcknowledgement(alert)}</td>
+      <td>${renderLineDelivery(alert)}</td>
+      <td><div class="safety-row-actions"><button class="safety-link-button" type="button" onclick="showSafetyDetails(${Number(alert.id)})">查看詳情</button><a href="${source.href}">${source.action}</a><button class="safety-resolve-button" type="button" onclick="openResolveDialog(${Number(alert.id)})">標記已處理</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderResolvedAlerts(alerts) {
+  return alerts.map(alert => {
+    const source = safetySourceView(alert);
+    return `<tr data-alert-id="${Number(alert.id)}">
+      <td class="safety-time">${escapeSafetyText(formatSafetyTime(alert.resolved_at))}</td>
+      <td><div class="safety-source"><i class="${alert.source_system === 'YOLO' ? 'yolo' : 'uwb'}">${source.icon}</i><strong>${escapeSafetyText(source.label)}</strong></div></td>
+      <td><strong class="safety-location">${escapeSafetyText(alert.location || '未設定位置')}</strong><small>${escapeSafetyText(alert.device_id || '—')}</small></td>
+      <td><strong class="safety-message">${escapeSafetyText(alert.message)}</strong><small>發生於 ${escapeSafetyText(formatSafetyTime(alert.occurred_at))}</small></td>
+      <td><strong>${escapeSafetyText(alert.resolved_by || '系統管理員')}</strong><small><em class="safety-status resolved">已完成</em></small></td>
+      <td class="safety-resolution-note">${escapeSafetyText(alert.resolution_note || '已完成事件處理')}</td>
+      <td><div class="safety-row-actions"><button class="safety-link-button" type="button" onclick="showSafetyDetails(${Number(alert.id)})">查看詳情</button><button class="safety-reopen-button" type="button" onclick="reopenSafetyAlert(${Number(alert.id)},this)">還原警報</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSafetyAlerts(alerts) {
+  const target = document.getElementById('safetyAlertRows');
+  renderSafetyHead();
+  if (!alerts.length) {
+    const completed = safetyView === 'resolved';
+    target.innerHTML = `<tr><td colspan="${completed ? 7 : 8}" class="safety-empty"><strong>${completed ? '目前沒有已完成事件' : '目前沒有危險警報'}</strong><small>${completed ? '標記完成的事件會永久保存在這裡' : 'YOLO 或 UWB 偵測到危險事件後會顯示在這裡'}</small></td></tr>`;
+    return;
+  }
+  target.innerHTML = safetyView === 'resolved' ? renderResolvedAlerts(alerts) : renderOpenAlerts(alerts);
+}
+
+function setSafetyView(view) {
+  safetyView = view;
+  document.getElementById('openAlertTab').classList.toggle('active', view === 'open');
+  document.getElementById('resolvedAlertTab').classList.toggle('active', view === 'resolved');
+  document.getElementById('openAlertTab').setAttribute('aria-selected', String(view === 'open'));
+  document.getElementById('resolvedAlertTab').setAttribute('aria-selected', String(view === 'resolved'));
+  document.getElementById('safetyFooterNote').textContent = view === 'resolved'
+    ? '完成事件永久保存在 SQLite，可供事件追蹤與報告使用'
+    : '頁面每 15 秒自動更新';
+  loadSafetyAlerts();
+}
+
+function scheduleSafetySearch() {
+  clearTimeout(safetySearchTimer);
+  safetySearchTimer = setTimeout(() => loadSafetyAlerts(), 300);
+}
+
+async function loadSafetyAlerts(silent = false) {
+  const button = document.getElementById('safetyRefreshButton');
+  if (!silent) { button.disabled = true; button.textContent = '載入中…'; }
+  const params = new URLSearchParams({
+    limit:'100', status:safetyView,
+    source:document.getElementById('safetySourceFilter').value,
+    days:document.getElementById('safetyDaysFilter').value,
+    q:document.getElementById('safetySearchInput').value.trim()
+  });
+  try {
+    const response = await fetch(`/api/safety-alerts?${params}`);
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || '危險警報載入失敗');
+    document.getElementById('safetyOpenCount').textContent = result.open_count;
+    document.getElementById('safetyResolvedCount').textContent = result.resolved_count;
+    const lineStatus = document.getElementById('lineConnectionStatus');
+    lineStatus.className = `line-connection-status ${result.line_configured ? 'connected' : 'not-configured'}`;
+    lineStatus.textContent = result.line_ack_configured
+      ? 'LINE：已連接，可確認警報'
+      : (result.line_configured ? 'LINE：可傳送，確認功能尚未啟用' : 'LINE：尚未設定');
+    safetyAlerts = result.alerts || [];
+    renderSafetyAlerts(safetyAlerts);
+    if (requestedSafetyAlertId && !requestedSafetyAlertOpened) {
+      const requestedAlert = safetyAlerts.find(item => Number(item.id) === requestedSafetyAlertId);
+      if (requestedAlert) {
+        requestedSafetyAlertOpened = true;
+        const row = document.querySelector(`[data-alert-id="${requestedSafetyAlertId}"]`);
+        if (row) row.classList.add('requested-alert');
+        showSafetyDetails(requestedSafetyAlertId);
+      }
+    }
+  } catch (error) {
+    document.getElementById('safetyAlertRows').innerHTML = `<tr><td colspan="${safetyView === 'resolved' ? 7 : 8}" class="safety-empty">${escapeSafetyText(error.message)}</td></tr>`;
+  } finally {
+    if (!silent) { button.disabled = false; button.textContent = '↻ 重新整理'; }
+  }
+}
+
+function openResolveDialog(alertId) {
+  const alert = safetyAlerts.find(item => Number(item.id) === Number(alertId));
+  if (!alert) return;
+  resolveAlertId = alertId;
+  document.getElementById('resolveSafetySummary').textContent = `${alert.message}・${alert.location || '未設定位置'}・${alert.device_id || '—'}`;
+  document.getElementById('resolutionNote').value = '';
+  document.getElementById('resolveSafetyDialog').showModal();
+  document.getElementById('resolutionNote').focus();
+}
+
+function closeResolveDialog() {
+  document.getElementById('resolveSafetyDialog').close();
+  resolveAlertId = null;
+}
+
+document.getElementById('resolveSafetyForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const note = document.getElementById('resolutionNote').value.trim();
+  if (!note || !resolveAlertId) return;
+  const submit = event.currentTarget.querySelector('.safety-dialog-submit');
+  submit.disabled = true;
+  try {
+    const response = await fetch(`/api/safety-alerts/${resolveAlertId}/resolve`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({resolution_note:note})
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || '更新失敗');
+    closeResolveDialog();
+    if (typeof toast === 'function') toast(result.message);
+    await loadSafetyAlerts(true);
+  } catch (error) {
+    if (typeof toast === 'function') toast(error.message);
+  } finally { submit.disabled = false; }
+});
+
+async function reopenSafetyAlert(alertId, button) {
+  if (!window.confirm('確定要將此事件還原為未處理警報嗎？')) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/safety-alerts/${alertId}/reopen`, {method:'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || '還原失敗');
+    if (typeof toast === 'function') toast(result.message);
+    await loadSafetyAlerts(true);
+  } catch (error) {
+    button.disabled = false;
+    if (typeof toast === 'function') toast(error.message);
+  }
+}
+
+function showSafetyDetails(alertId) {
+  const alert = safetyAlerts.find(item => Number(item.id) === Number(alertId));
+  if (!alert) return;
+  document.getElementById('detailSafetyMessage').textContent = alert.message;
+  const fields = [
+    ['來源系統', alert.source_system], ['設備編號', alert.device_id || '—'],
+    ['位置', alert.location || '未設定位置'], ['危險等級', alert.severity],
+    ['發生時間', formatSafetyTime(alert.occurred_at)], ['詳細說明', alert.detail || '—']
+  ];
+  fields.push(
+    ['LINE 接收狀態', alert.acknowledged_at ? '已接收' : '等待接收'],
+    ['接收人員', alert.acknowledged_by || '—'],
+    ['接收時間', formatSafetyTime(alert.acknowledged_at)]
+  );
+  if (alert.status === 'resolved') fields.push(
+    ['完成時間', formatSafetyTime(alert.resolved_at)], ['處理人員', alert.resolved_by || '系統管理員'],
+    ['處理備註', alert.resolution_note || '已完成事件處理']
+  );
+  document.getElementById('detailSafetyFields').innerHTML = fields.map(([label,value]) => `<div><dt>${escapeSafetyText(label)}</dt><dd>${escapeSafetyText(value)}</dd></div>`).join('');
+  document.getElementById('safetyDetailDialog').showModal();
+}
+
+async function retryLineAlert(alertId, button) {
+  button.disabled = true; button.textContent = '傳送中…';
+  try {
+    const response = await fetch(`/api/safety-alerts/${alertId}/line/retry`, {method:'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'LINE 重新傳送失敗');
+    if (typeof toast === 'function') toast(result.message);
+    await loadSafetyAlerts(true);
+  } catch (error) {
+    button.disabled = false; button.textContent = '重新傳送';
+    if (typeof toast === 'function') toast(error.message);
+  }
+}
+
+async function testLineAlert() {
+  const button = document.getElementById('lineTestButton');
+  button.disabled = true; button.textContent = '測試中…';
+  try {
+    const response = await fetch('/api/safety-alerts/line-test', {method:'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'LINE 測試失敗');
+    if (typeof toast === 'function') toast(result.message);
+    await loadSafetyAlerts(true);
+  } catch (error) {
+    if (typeof toast === 'function') toast(error.message);
+    await loadSafetyAlerts(true);
+  } finally { button.disabled = false; button.textContent = '傳送 LINE 測試'; }
+}
+
+renderSafetyHead();
+loadSafetyAlerts();
+setInterval(() => { if (!document.hidden) loadSafetyAlerts(true); }, 15000);
+</script>
+{% endblock %}

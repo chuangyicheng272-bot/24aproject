@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}UWB 電子圍籬系統｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='uwb.css', v='20260726-2') }}">{% endblock %}
+{% block content %}
+<main class="page uwb-page">
+  <a class="uwb-back" href="{{ url_for('dashboard') }}">← 返回儀表板</a>
+
+  <section id="uwbAreaSelection">
+    <div class="uwb-page-heading">
+      <div class="uwb-heading-icon">⌾</div>
+      <div>
+        <h1>UWB 電子圍籬系統</h1>
+        <p>請選擇監控區域以開始即時定位監看</p>
+      </div>
+      <div class="uwb-source">
+        <strong>↻　資料來源：外部 UWB API</strong>
+        <small>每區固定 4 個基站</small>
+        <a href="{{ url_for('base_stations') }}">前往設定區域 →</a>
+      </div>
+    </div>
+
+    <div class="uwb-area-toolbar">
+      <label class="uwb-search">
+        <span>⌕</span>
+        <input id="uwbAreaSearch" placeholder="搜尋監控區域" oninput="renderUwbAreas()">
+      </label>
+      <div class="uwb-filters">
+        <button class="active" onclick="setUwbAreaFilter('all', this)">全部</button>
+        <button onclick="setUwbAreaFilter('ready', this)"><i class="ready-dot"></i>正常</button>
+        <button onclick="setUwbAreaFilter('alert', this)"><i class="alert-dot"></i>有警示</button>
+      </div>
+    </div>
+
+    <div id="uwbAreaCards" class="uwb-area-grid"></div>
+    <p class="uwb-sync-note">ⓘ　區域來自設定區域；4 個基站的位置與狀態由外部 UWB 資料同步</p>
+  </section>
+
+  <section id="uwbMonitorPanel" class="panel uwb-monitor-panel" hidden>
+    <div class="panel-head">
+      <div>
+        <button class="link-button uwb-area-back" onclick="backToUwbAreas()">← 返回區域選擇</button>
+        <h2 id="selectedUwbAreaTitle">UWB 即時定位監看</h2>
+        <small class="muted" id="uwbMonitorStatus">每 5 秒同步一次定位資料</small>
+      </div>
+      <div class="legend">
+        <span class="dot green"></span> 正常　
+        <span class="dot orange"></span> 注意　
+        <span class="dot red"></span> 越界／中高風險　
+        <span class="uwb-station-legend">⌾</span> UWB 基站
+      </div>
+    </div>
+    <div class="uwb-live-map" id="uwbLiveMap"></div>
+    <div class="uwb-monitor-summary">
+      <div><b>UWB 基站</b><span id="uwbStationSummary">4 / 4</span></div>
+      <div><b>區域人員</b><span id="uwbPeopleSummary">0 人</span></div>
+      <div><b>警示事件</b><span id="uwbAlertSummary">0 筆</span></div>
+      <div><b>最後同步</b><span id="uwbLastSyncSummary">尚未同步</span></div>
+    </div>
+  </section>
+</main>
+<script>
+  loadUwbAreas();
+  setInterval(() => {
+    if (document.hidden) return;
+    if (document.getElementById('uwbAreaSelection').hidden) {
+      refreshSelectedUwbArea();
+    } else {
+      loadUwbAreas();
+    }
+  }, 5000);
+</script>
+{% endblock %}

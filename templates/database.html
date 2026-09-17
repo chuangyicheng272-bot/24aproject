@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}SQLite 資料庫｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='database.css', v='20260726-2') }}">{% endblock %}
+{% block content %}
+<main class="database-page">
+  <section class="database-workbench">
+    <div class="workbench-head">
+      <div>
+        <p class="section-kicker">實際操作</p>
+        <h2>資料表與最新紀錄</h2>
+        <p id="databaseMeta">正在讀取 SQLite 資訊…</p>
+      </div>
+      <div class="workbench-actions">
+        <button class="button-secondary" type="button" id="refreshDatabase">↻ 重新查詢</button>
+        <button class="button-primary" type="button" id="insertSample">＋ 建立一筆報告測試資料</button>
+      </div>
+    </div>
+
+    <div class="database-layout">
+      <nav class="table-list" id="tableList" aria-label="SQLite 資料表"></nav>
+      <div class="table-detail">
+        <div class="table-detail-head">
+          <div>
+            <p class="section-kicker" id="selectedTableName">TABLE</p>
+            <h3 id="selectedTableLabel">請選擇資料表</h3>
+          </div>
+          <span id="selectedTableCount" class="count-pill">0 筆</span>
+        </div>
+        <div id="schemaChips" class="schema-chips"></div>
+        <div class="data-scroll">
+          <table>
+            <thead id="dataHead"></thead>
+            <tbody id="dataBody"><tr><td>載入中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const state = { tables: [], selected: 'communication_events' };
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function compactValue(value) {
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+  return text.length > 90 ? text.slice(0, 87) + '…' : text;
+}
+
+function renderTableList() {
+  const list = document.getElementById('tableList');
+  list.innerHTML = state.tables.map(table => `
+    <button type="button" class="table-button ${table.name === state.selected ? 'active' : ''}"
+      data-table="${escapeHtml(table.name)}">
+      <span><b>${escapeHtml(table.label)}</b><small>${escapeHtml(table.name)}</small></span>
+      <em>${table.count}</em>
+    </button>
+  `).join('');
+  list.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => {
+      state.selected = button.dataset.table;
+      renderTableList();
+      renderSelectedTable();
+    });
+  });
+}
+
+function renderSelectedTable() {
+  const table = state.tables.find(item => item.name === state.selected) || state.tables[0];
+  if (!table) return;
+  state.selected = table.name;
+  document.getElementById('selectedTableName').textContent = table.name;
+  document.getElementById('selectedTableLabel').textContent = table.label;
+  document.getElementById('selectedTableCount').textContent = `${table.count} 筆`;
+  document.getElementById('schemaChips').innerHTML = table.schema.map(column => `
+    <span>${escapeHtml(column.name)} <small>${escapeHtml(column.type)}</small>${column.primary_key ? '<b>PK</b>' : ''}</span>
+  `).join('');
+  document.getElementById('dataHead').innerHTML = `<tr>${table.columns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}</tr>`;
+  document.getElementById('dataBody').innerHTML = table.recent.length
+    ? table.recent.map(row => `<tr>${table.columns.map(column => `<td title="${escapeHtml(row[column])}">${escapeHtml(compactValue(row[column]))}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${table.columns.length}" class="empty-cell">目前沒有資料</td></tr>`;
+}
+
+async function loadDatabase(preferredTable) {
+  const response = await fetch('/api/database/overview');
+  if (!response.ok) throw new Error('無法讀取資料庫資訊');
+  const result = await response.json();
+  const database = result.database;
+  state.tables = database.tables;
+  if (preferredTable) state.selected = preferredTable;
+  document.getElementById('databaseMeta').textContent =
+    `外鍵約束：${database.foreign_keys ? '已啟用' : '未啟用'}｜Journal：${database.journal_mode}｜更新：${database.generated_at}`;
+  renderTableList();
+  renderSelectedTable();
+}
+
+document.getElementById('refreshDatabase').addEventListener('click', async () => {
+  try {
+    await loadDatabase(state.selected);
+    toast('資料庫資料已重新查詢');
+  } catch (error) {
+    toast(error.message);
+  }
+});
+
+document.getElementById('insertSample').addEventListener('click', async () => {
+  const button = document.getElementById('insertSample');
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/database/report-sample', { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || '新增失敗');
+    await loadDatabase('communication_events');
+    toast(`${result.message}，資料列 ID：${result.data.id}`);
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+loadDatabase().catch(error => {
+  toast(error.message);
+});
+</script>
+{% endblock %}

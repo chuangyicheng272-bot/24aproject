@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}YOLO 影像辨識串流｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='yolo.css', v='20260726-2') }}">{% endblock %}
+{% block content %}
+<main class="page yolo-page">
+  <a class="yolo-back" href="{{ url_for('dashboard') }}">← 返回儀表板</a>
+
+  <section id="yoloDeviceSelection">
+    <div class="yolo-page-heading">
+      <div class="yolo-heading-icon">🎯</div>
+      <div>
+        <h1>YOLO 影像辨識串流</h1>
+        <p>請選擇監控設備以開始即時辨識</p>
+      </div>
+    </div>
+
+    <div class="yolo-device-toolbar">
+      <label class="yolo-search">
+        <span>⌕</span>
+        <input id="yoloDeviceSearch" placeholder="搜尋監控設備" oninput="renderYoloDevices()">
+      </label>
+      <div class="yolo-filters">
+        <button class="active" data-filter="all" onclick="setYoloDeviceFilter('all', this)">全部</button>
+        <button data-filter="online" onclick="setYoloDeviceFilter('online', this)"><i class="online-dot"></i>連線中</button>
+        <button data-filter="offline" onclick="setYoloDeviceFilter('offline', this)"><i class="offline-dot"></i>離線</button>
+      </div>
+    </div>
+
+    <div id="yoloDeviceCards" class="yolo-device-grid"></div>
+    <p class="yolo-sync-note">ⓘ　設備清單同步自監控設備設定</p>
+  </section>
+
+  <section id="yoloStreamPanel" class="panel yolo-panel" hidden>
+    <div class="panel-title split">
+      <div>
+        <button class="link-button yolo-device-back" onclick="backToYoloDevices()">← 返回設備選擇</button>
+        <h2 id="selectedCameraTitle">YOLO 影像辨識串流</h2>
+        <span class="muted" id="streamStatus">等待攝影機串流</span>
+      </div>
+      <div class="video-upload">
+        <label class="primary">上傳測試影片<input id="videoUploadFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/ogg" onchange="uploadVideoFile()"></label>
+        <select id="videoSelector" onchange="playSelectedVideo()"><option value="">選擇已上傳影片</option></select>
+      </div>
+    </div>
+    <div class="stream-area">
+      <video id="streamVideo" controls autoplay muted playsinline></video>
+      <div class="stream-placeholder" id="streamPlaceholder">
+        <span>▶</span>
+        <strong>等待影像串流</strong>
+        <small id="streamPlaceholderText">請先在監控設備中設定串流網址，或上傳測試影片</small>
+      </div>
+      <div class="stream-overlay">YOLO • VIDEO STREAM</div>
+    </div>
+    <div class="stream-info">
+      <div><b>來源</b><span id="videoSource">尚未選擇攝影機</span></div>
+      <div><b>辨識狀態</b><span id="detectStatus">待機中</span></div>
+      <div><b>監測項目</b><span>安全帽、背心、人員</span></div>
+    </div>
+  </section>
+</main>
+<script>
+  loadYoloDevices();
+  loadVideos();
+  setInterval(() => {
+    if (!document.hidden && !document.getElementById('yoloDeviceSelection').hidden) {
+      loadYoloDevices();
+    }
+  }, 5000);
+</script>
+{% endblock %}

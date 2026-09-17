@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Email 郵寄服務｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='users.css', v='20260809-1') }}">{% endblock %}
+{% block content %}
+<main class="page account-management-page email-service-page">
+  <div class="crumb">首頁　/　系統總覽　/　帳戶管理　/　Email 郵寄服務</div>
+  <a class="back" href="{{ url_for('dashboard') }}">返回系統總覽</a>
+
+  <nav class="account-section-nav" aria-label="帳戶管理功能">
+    <a class="account-section-link" href="{{ url_for('users') }}">
+      <span class="account-section-icon">♙</span><strong>所有帳戶</strong>
+    </a>
+    <a class="account-section-link active" href="{{ url_for('email_service') }}" aria-current="page">
+      <span class="account-section-icon">✉</span><strong>Email 郵寄服務</strong>
+    </a>
+  </nav>
+
+  <section class="panel email-service-panel">
+    <div class="email-service-heading">
+      <div>
+        <h1>Email 郵寄服務</h1>
+        <p>管理郵件連線與系統通知紀錄</p>
+      </div>
+    </div>
+    <div class="email-service-status-card" id="emailServiceStatusCard" data-state="not_configured">
+      <div class="email-status-summary">
+        <span id="emailServiceDot" class="email-service-dot"></span>
+        <strong id="emailServiceLabel">讀取中</strong>
+      </div>
+      <div class="email-service-detail">
+        <span>寄件者信箱</span><strong id="emailServiceSender">—</strong>
+      </div>
+      <div class="email-service-detail">
+        <span>SMTP 伺服器</span><strong id="emailServiceHost">—</strong>
+      </div>
+      <div class="email-service-detail">
+        <span>加密方式</span><strong id="emailServiceEncryption">TLS</strong>
+      </div>
+      <div class="email-service-detail">
+        <span>最後檢查</span><strong id="emailServiceLastCheck">—</strong>
+      </div>
+      <div class="email-service-actions">
+        <button class="secondary" type="button" onclick="loadEmailService()">↻ 重新檢查</button>
+        <button class="primary" id="sendTestEmailButton" type="button" onclick="sendTestEmail(event)">✉ 寄送測試信</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel email-delivery-panel">
+    <div class="email-delivery-heading">
+      <div>
+        <h2>最近寄送紀錄</h2>
+        <p>查看忘記密碼與系統通知的寄送結果</p>
+      </div>
+      <div class="email-delivery-tools">
+        <div class="email-delivery-filters" role="group" aria-label="寄送狀態篩選">
+          <button class="active" type="button" data-email-status="all" onclick="setEmailDeliveryFilter('all',this)">全部</button>
+          <button type="button" data-email-status="sent" onclick="setEmailDeliveryFilter('sent',this)">成功</button>
+          <button type="button" data-email-status="failed" onclick="setEmailDeliveryFilter('failed',this)">失敗</button>
+        </div>
+        <button class="secondary" type="button" onclick="loadEmailDeliveries()">↻ 重新整理</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="email-delivery-table">
+        <thead>
+          <tr>
+            <th>寄送時間</th><th>收件人</th><th>通知類型</th>
+            <th>結果</th><th>失敗原因</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="emailDeliveryRows">
+          <tr><td colspan="6" class="email-delivery-empty">讀取寄送紀錄中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script>loadEmailService()</script>
+{% endblock %}

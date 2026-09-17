@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}設定區域｜SafeGuard{% endblock %}
+{% block content %}
+<main class="page area-management-page">
+  <a class="back" href="{{ url_for('dashboard') }}">返回</a>
+  <div class="area-page-heading split">
+    <div>
+      <h1>設定區域</h1>
+      <span class="muted">建立區域；每區固定 4 個 UWB 基站，座標與狀態可由外部 API 匯入</span>
+    </div>
+    <div class="area-page-actions">
+      <a class="secondary" href="{{ url_for('site_map') }}">前往 UWB 電子圍籬監看 →</a>
+      <button class="primary" onclick="openAreaForm()">＋ 新增區域</button>
+    </div>
+  </div>
+  <div id="areaCards" class="area-cards"></div>
+</main>
+
+<dialog id="areaDialog">
+  <form method="dialog" id="areaForm">
+    <h2>新增區域</h2>
+    <p class="dialog-note">輸入區域名稱即可建立。</p>
+    <label>區域名稱
+      <input id="areaName" required maxlength="100" placeholder="例如 A 棟 1 樓" autocomplete="off">
+    </label>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button class="primary" value="default" onclick="saveArea(event)">新增區域</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="baseStationDialog">
+  <form method="dialog" id="baseStationForm">
+    <h2 id="baseStationDialogTitle">新增 UWB 基站</h2>
+    <input id="baseStationAreaId" type="hidden">
+    <label>裝置名稱
+      <input id="baseStationName" required placeholder="例如 UWB 基站 A-01" autocomplete="off">
+    </label>
+    <div class="two-fields">
+      <label>X 座標<input id="baseStationX" type="number" step="0.1" value="0" required></label>
+      <label>Y 座標<input id="baseStationY" type="number" step="0.1" value="0" required></label>
+    </div>
+    <label>Z 座標<input id="baseStationZ" type="number" step="0.1" value="0" required></label>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button class="primary" value="default" onclick="saveBaseStation(event)">新增基站</button>
+    </div>
+  </form>
+</dialog>
+<script>loadAreas()</script>
+{% endblock %}
