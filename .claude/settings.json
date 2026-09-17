@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:huggingface.co)",
+      "Bash(HF_HUB_DISABLE_SYMLINKS_WARNING=1 python test_frequency_dataset.py)",
+      "Bash(python analyze_speckle_npz.py --sample 1)",
+      "Bash(python analyze_speckle_npz.py --batch)",
+      "Bash(node -e \"require\\('pptxgenjs'\\); console.log\\('pptxgenjs OK'\\)\")",
+      "Bash(node -e \"require\\('react-icons/fa'\\); require\\('sharp'\\); console.log\\('icons OK'\\)\")",
+      "Bash(python \"c:/Users/chuan/my_project/.claude/skills/pptx/scripts/office/soffice.py\" --version)",
+      "Bash(python -c \"from PIL import Image; im=Image.open\\('slide-5.jpg'\\); print\\(im.size\\); im.crop\\(\\(0,280,700,640\\)\\).resize\\(\\(1400,720\\)\\).save\\('s5_crop.png'\\)\")",
+      "Bash(awk '{print $5, $9}')"
+    ]
+  }
+}
