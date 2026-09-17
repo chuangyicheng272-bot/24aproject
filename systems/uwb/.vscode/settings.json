@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/.venv": true,
+    "**/.vs": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pio": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/.vs": true,
+    "**/__pycache__": true,
+    "**/.pio": true
+  }
+}
