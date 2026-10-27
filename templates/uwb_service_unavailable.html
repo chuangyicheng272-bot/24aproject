@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>UWB 服務未連線</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f3f7fb;color:#17243a;font-family:Arial,"Microsoft JhengHei",sans-serif;padding:24px}.card{width:min(620px,100%);border:1px solid #d7e2ef;border-radius:14px;background:#fff;padding:38px;box-shadow:0 12px 32px #17304a12}.icon{width:54px;height:54px;display:grid;place-items:center;border-radius:14px;background:#e4f1ff;color:#1463c8;font-size:27px}h1{margin:20px 0 10px;font-size:27px}p{color:#64758c;line-height:1.7}.code{padding:13px 15px;border-radius:8px;background:#eef4fa;color:#2d4a6d;font-family:Consolas,monospace;overflow-wrap:anywhere}.detail{font-size:12px;color:#8b98a8}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">⌖</div>
+    <h1>UWB 定位服務尚未啟動</h1>
+    <p>SafeGuard 主系統正常，但尚未連上獨立的 UWB 電子圍欄服務。請啟動 <strong>systems/uwb/app.py</strong> 後重新整理。</p>
+    <div class="code">{{ backend_url }}</div>
+    {% if detail %}<p class="detail">{{ detail }}</p>{% endif %}
+  </main>
+</body>
+</html>

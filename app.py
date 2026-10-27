@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
 
-from flask import Flask, Response, g, has_request_context, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, g, has_request_context, jsonify, redirect, render_template, request, send_from_directory, session, stream_with_context, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -50,6 +50,10 @@ app.config.update(
     SMTP_FROM_EMAIL=os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USERNAME", "")),
     PASSWORD_RESET_TTL_MINUTES=max(1, int(os.getenv("PASSWORD_RESET_TTL_MINUTES", "10"))),
     PASSWORD_RESET_COOLDOWN_SECONDS=max(0, int(os.getenv("PASSWORD_RESET_COOLDOWN_SECONDS", "60"))),
+    YOLO_BACKEND_URL=os.getenv("YOLO_BACKEND_URL", "http://127.0.0.1:8001").rstrip("/"),
+    YOLO_PROXY_TIMEOUT_SECONDS=max(1, int(os.getenv("YOLO_PROXY_TIMEOUT_SECONDS", "10"))),
+    UWB_BACKEND_URL=os.getenv("UWB_BACKEND_URL", "http://127.0.0.1:5002").rstrip("/"),
+    UWB_PROXY_TIMEOUT_SECONDS=max(1, int(os.getenv("UWB_PROXY_TIMEOUT_SECONDS", "10"))),
 )
 
 VIDEO_EXTENSIONS = {"mp4", "webm", "mov", "m4v", "ogg"}
@@ -2000,7 +2004,122 @@ def resolve_system_error(error_id):
 @app.route("/site-map")
 @login_required
 def site_map():
-    return render_template("site_map.html")
+    return render_template(
+        "site_map.html",
+        uwb_console_url=url_for("uwb_service_proxy", path=""),
+    )
+
+
+def uwb_backend_request(path="", method="GET", body=None):
+    """Create an internal request to the standalone UWB service."""
+    target = f"{app.config['UWB_BACKEND_URL']}/{str(path).lstrip('/')}"
+    if request.query_string:
+        target = f"{target}?{request.query_string.decode('latin-1')}"
+    headers = {
+        "Accept": request.headers.get("Accept", "*/*"),
+        "User-Agent": "SafeGuard-UWB-Proxy/1.0",
+    }
+    content_type = request.headers.get("Content-Type")
+    if content_type:
+        headers["Content-Type"] = content_type
+    return urllib.request.Request(target, data=body, headers=headers, method=method)
+
+
+def uwb_proxy_headers(upstream):
+    """Forward safe response headers from the standalone UWB service."""
+    headers = {}
+    for name in ("Content-Type", "Cache-Control", "Pragma", "Expires"):
+        value = upstream.headers.get(name)
+        if value:
+            headers[name] = value
+    return headers
+
+
+def uwb_unavailable_response(detail=""):
+    if request.path.startswith("/site-map/service/api/"):
+        return jsonify(
+            ok=False,
+            message="UWB 定位服務尚未啟動",
+            detail=str(detail),
+        ), 503
+    return render_template(
+        "uwb_service_unavailable.html",
+        backend_url=app.config["UWB_BACKEND_URL"],
+        detail=str(detail),
+    ), 503
+
+
+@app.get("/api/uwb/status")
+@login_required
+def api_uwb_status():
+    status_url = f"{app.config['UWB_BACKEND_URL']}/api/status"
+    try:
+        upstream_request = urllib.request.Request(
+            status_url,
+            headers={"Accept": "application/json", "User-Agent": "SafeGuard/1.0"},
+        )
+        with urllib.request.urlopen(
+            upstream_request,
+            timeout=min(app.config["UWB_PROXY_TIMEOUT_SECONDS"], 5),
+        ) as upstream:
+            payload = json.loads(upstream.read().decode("utf-8"))
+        return jsonify(
+            ok=True,
+            state="online",
+            label="UWB 定位服務已連線",
+            backend=payload,
+        )
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+        return jsonify(
+            ok=False,
+            state="offline",
+            label="UWB 定位服務未連線",
+            detail=str(exc),
+        )
+
+
+@app.route(
+    "/site-map/console/",
+    defaults={"path": ""},
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
+@app.route(
+    "/site-map/service/<path:path>",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
+@login_required
+def uwb_service_proxy(path):
+    """Expose the standalone UWB interface and API under SafeGuard login."""
+    body = request.get_data() if request.method not in {"GET", "HEAD"} else None
+    try:
+        upstream = urllib.request.urlopen(
+            uwb_backend_request(path, request.method, body),
+            timeout=app.config["UWB_PROXY_TIMEOUT_SECONDS"],
+        )
+    except urllib.error.HTTPError as exc:
+        upstream = exc
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return uwb_unavailable_response(exc)
+
+    status = getattr(upstream, "status", None) or upstream.getcode()
+    headers = uwb_proxy_headers(upstream)
+    content_type = headers.get("Content-Type", "")
+    try:
+        payload = upstream.read()
+    finally:
+        upstream.close()
+
+    if not path and "text/html" in content_type.lower():
+        html = payload.decode("utf-8", errors="replace")
+        html = re.sub(
+            r"([\"'])/api/",
+            r"\1/site-map/service/api/",
+            html,
+        )
+        payload = html.encode("utf-8")
+        headers["Content-Type"] = "text/html; charset=utf-8"
+
+    return Response(payload, status=status, headers=headers)
 
 
 @app.route("/people")
@@ -2018,7 +2137,140 @@ def monitoring_devices():
 @app.route("/yolo")
 @login_required
 def yolo():
-    return render_template("yolo.html")
+    return render_template(
+        "yolo.html",
+        yolo_console_url=url_for("yolo_service_proxy", path=""),
+    )
+
+
+def yolo_backend_request(path="", method="GET", body=None):
+    """Create an internal request to the standalone YOLO service."""
+    target = f"{app.config['YOLO_BACKEND_URL']}/{str(path).lstrip('/')}"
+    if request.query_string:
+        target = f"{target}?{request.query_string.decode('latin-1')}"
+    headers = {
+        "Accept": request.headers.get("Accept", "*/*"),
+        "User-Agent": "SafeGuard-YOLO-Proxy/1.0",
+    }
+    content_type = request.headers.get("Content-Type")
+    if content_type:
+        headers["Content-Type"] = content_type
+    return urllib.request.Request(target, data=body, headers=headers, method=method)
+
+
+def yolo_proxy_headers(upstream):
+    """Forward only response headers that are safe for the browser proxy."""
+    headers = {}
+    for name in ("Content-Type", "Cache-Control", "Pragma", "Expires"):
+        value = upstream.headers.get(name)
+        if value:
+            headers[name] = value
+    return headers
+
+
+def yolo_unavailable_response(detail=""):
+    if request.path.startswith("/yolo/service/api/"):
+        return jsonify(
+            ok=False,
+            message="YOLO 辨識服務尚未啟動",
+            detail=str(detail),
+        ), 503
+    return render_template(
+        "yolo_service_unavailable.html",
+        backend_url=app.config["YOLO_BACKEND_URL"],
+        detail=str(detail),
+    ), 503
+
+
+@app.get("/api/yolo/status")
+@login_required
+def api_yolo_status():
+    health_url = f"{app.config['YOLO_BACKEND_URL']}/api/health"
+    try:
+        upstream_request = urllib.request.Request(
+            health_url,
+            headers={"Accept": "application/json", "User-Agent": "SafeGuard/1.0"},
+        )
+        with urllib.request.urlopen(
+            upstream_request,
+            timeout=min(app.config["YOLO_PROXY_TIMEOUT_SECONDS"], 5),
+        ) as upstream:
+            payload = json.loads(upstream.read().decode("utf-8"))
+        return jsonify(
+            ok=True,
+            state="online",
+            label="YOLO 辨識服務已連線",
+            backend=payload,
+        )
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+        return jsonify(
+            ok=False,
+            state="offline",
+            label="YOLO 辨識服務未連線",
+            detail=str(exc),
+        )
+
+
+@app.route(
+    "/yolo/console/",
+    defaults={"path": ""},
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
+@app.route(
+    "/yolo/service/<path:path>",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
+@login_required
+def yolo_service_proxy(path):
+    """Expose the standalone YOLO UI and API under the authenticated site."""
+    body = request.get_data() if request.method not in {"GET", "HEAD"} else None
+    try:
+        upstream = urllib.request.urlopen(
+            yolo_backend_request(path, request.method, body),
+            timeout=app.config["YOLO_PROXY_TIMEOUT_SECONDS"],
+        )
+    except urllib.error.HTTPError as exc:
+        upstream = exc
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return yolo_unavailable_response(exc)
+
+    status = getattr(upstream, "status", None) or upstream.getcode()
+    headers = yolo_proxy_headers(upstream)
+    content_type = headers.get("Content-Type", "")
+    if path == "api/cameras/stream" and status < 400:
+        def generate_stream():
+            try:
+                while True:
+                    chunk = upstream.read(8 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                upstream.close()
+
+        return Response(
+            stream_with_context(generate_stream()),
+            status=status,
+            headers=headers,
+            direct_passthrough=True,
+        )
+
+    try:
+        payload = upstream.read()
+    finally:
+        upstream.close()
+
+    if not path and "text/html" in content_type.lower():
+        html = payload.decode("utf-8", errors="replace")
+        html = re.sub(
+            r"([\"'])/api/",
+            r"\1/yolo/service/api/",
+            html,
+        )
+        payload = html.encode("utf-8")
+        headers["Content-Type"] = "text/html; charset=utf-8"
+
+    return Response(payload, status=status, headers=headers)
 
 
 @app.route("/base-stations")

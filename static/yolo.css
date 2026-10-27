@@ -1,46 +1,27 @@
-.yolo-page{max-width:1600px;margin:0 auto;padding-top:28px}
-.yolo-back{display:inline-block;margin-bottom:28px;color:var(--blue)}
-.yolo-page-heading{display:flex;align-items:center;gap:18px;margin-bottom:30px}
-.yolo-heading-icon{width:58px;height:58px;border-radius:13px;background:#ffe9ef;display:grid;place-items:center;font-size:30px}
-.yolo-page-heading h1{margin:0;color:#0b2856;font-size:34px}
-.yolo-page-heading p{margin:5px 0 0;color:#68809f;font-size:18px}
-.yolo-device-toolbar{display:flex;align-items:center;gap:28px;padding:20px 24px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 3px 12px #11284d10;margin-bottom:22px}
-.yolo-search{display:flex;align-items:center;gap:10px;width:min(370px,100%);height:45px;border:1px solid #cbd8e8;border-radius:7px;padding:0 14px;color:#58789f}
-.yolo-search input{width:100%;border:0;outline:0;font:inherit;color:#203d66}
-.yolo-filters{display:flex;gap:10px}
-.yolo-filters button{display:flex;align-items:center;gap:8px;border:0;border-radius:8px;padding:11px 20px;background:#f0f4f9;color:#526b8c;font:inherit;cursor:pointer}
-.yolo-filters button.active{background:var(--blue);color:#fff}
-.yolo-filters i,.yolo-device-meta i{width:8px;height:8px;border-radius:50%;display:inline-block}
-.online-dot,.yolo-device-meta .online i{background:#08b67e}
-.offline-dot,.yolo-device-meta .offline i{background:#7487a3}
-.yolo-device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
-.yolo-device-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 3px 12px #11284d10}
-.yolo-device-card-head,.yolo-device-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.yolo-device-card-head>div{display:flex;align-items:center;gap:10px;min-width:0;color:#0c2b59}
-.yolo-device-card-head strong,.yolo-device-card-head b{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.yolo-device-card-head em{width:1px;height:22px;background:#b7c5d8}
-.camera-symbol,.card-chevron{color:var(--blue);font-size:22px}
-.yolo-device-meta{margin:15px 0}
-.yolo-device-meta span{display:flex;align-items:center;gap:7px;font-size:14px}
-.yolo-device-meta .online{color:#05996c}
-.yolo-device-meta .offline{color:#71839a}
-.yolo-device-meta small{color:#71839a}
-.yolo-stream-url{display:flex;min-width:0;gap:4px;margin:-3px 0 14px;color:var(--blue);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.yolo-stream-url span{flex:none;color:#526b8c}
-.yolo-stream-url em{color:#8b9bb0;font-style:normal}
-.camera-preview{height:240px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#e6efff;background:linear-gradient(145deg,#25496c,#10263e);position:relative;overflow:hidden}
-.camera-preview:before,.camera-preview:after{content:"";position:absolute;border:1px solid #ffffff18;width:120%;height:80px;transform:rotate(-8deg)}
-.camera-preview:after{transform:rotate(11deg)}
-.camera-preview-1{background:linear-gradient(145deg,#45596c,#172635)}
-.camera-preview-2{background:linear-gradient(145deg,#778698,#3e4d5e)}
-.camera-preview-icon{font-size:42px;z-index:1}
-.camera-preview small{z-index:1;margin-top:10px}
-.is-offline .camera-preview{filter:grayscale(1);opacity:.58}
-.yolo-device-card>button{width:100%;margin-top:16px;border:0;border-radius:7px;padding:14px;background:var(--blue);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
-.yolo-device-card>button:disabled{background:#e8edf4;color:#74839a;cursor:not-allowed}
-.yolo-sync-note{text-align:center;color:#71839a;margin:28px 0 0}
-.yolo-empty-state{grid-column:1/-1;display:grid;place-items:center;min-height:240px;background:#fff;border:1px dashed #bdcce0;border-radius:12px;color:#71839a}
-.yolo-device-back{margin-bottom:8px}
-.yolo-panel[hidden],#yoloDeviceSelection[hidden]{display:none}
-@media(max-width:1000px){.yolo-device-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.yolo-page-heading h1{font-size:26px}.yolo-page-heading p{font-size:14px}.yolo-device-toolbar{align-items:stretch;flex-direction:column;gap:14px}.yolo-search{width:100%}.yolo-filters{overflow-x:auto}.yolo-device-grid{grid-template-columns:1fr}.camera-preview{height:210px}}
+.yolo-integration-page{max-width:1600px;margin:0 auto;padding-top:28px}
+.yolo-integration-nav{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}
+.yolo-back,.yolo-alert-link{display:inline-flex;align-items:center;color:var(--blue);font-weight:600}
+.yolo-alert-link{min-height:39px;padding:0 14px;border:1px solid #bcd0eb;border-radius:8px;background:#fff}
+.yolo-integration-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:22px;padding:22px 24px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:0 4px 18px #11284d0d}
+.yolo-heading-copy{display:flex;align-items:center;gap:17px;min-width:0}
+.yolo-heading-icon{width:58px;height:58px;flex:0 0 58px;display:grid;place-items:center;border-radius:15px;background:#ffe7ef;font-size:29px}
+.yolo-kicker{margin:0 0 4px!important;color:#55749c!important;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.yolo-heading-copy h1{margin:0;color:#0b2856;font-size:29px}
+.yolo-heading-copy p:last-child{margin:6px 0 0;color:#68809f;line-height:1.55}
+.yolo-heading-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.yolo-service-state{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 13px;border-radius:999px;background:#f2f5f9;color:#61738b;font-size:13px}
+.yolo-service-state i{width:9px;height:9px;border-radius:50%;background:#9aa8b8;box-shadow:0 0 0 4px #9aa8b820}
+.yolo-service-state.online{background:#e4f8ef;color:#087d59}
+.yolo-service-state.online i{background:#08b67e;box-shadow:0 0 0 4px #08b67e20}
+.yolo-service-state.offline{background:#ffeaee;color:#cc2452}
+.yolo-service-state.offline i{background:#ef3b65;box-shadow:0 0 0 4px #ef3b6520}
+.yolo-refresh-button{min-height:40px;border:1px solid #bcd0eb;border-radius:8px;padding:0 14px;background:#fff;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}
+.yolo-refresh-button:disabled{opacity:.6;cursor:wait}
+.yolo-console-card{overflow:hidden;border:1px solid #cfdceb;border-radius:16px;background:#fff;box-shadow:0 8px 25px #11284d10}
+.yolo-console-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:58px;padding:12px 19px;border-bottom:1px solid #dce4df;background:#fbfcfd;color:#243d58}
+.yolo-console-bar>div{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.yolo-console-bar small{color:#6b7f93;text-align:right;line-height:1.45}
+.yolo-console-dot{width:10px;height:10px;border-radius:50%;background:#138a5b;box-shadow:0 0 0 4px #138a5b1c}
+.yolo-console-frame{display:block;width:100%;height:max(720px,calc(100vh - 265px));border:0;background:#f4f6f5}
+@media(max-width:900px){.yolo-integration-heading{align-items:flex-start;flex-direction:column}.yolo-heading-actions{width:100%;justify-content:space-between}.yolo-console-bar{align-items:flex-start;flex-direction:column}.yolo-console-bar small{text-align:left}.yolo-console-frame{height:760px}}
+@media(max-width:640px){.yolo-integration-page{padding-top:20px}.yolo-integration-nav{align-items:flex-start;flex-direction:column}.yolo-heading-copy{align-items:flex-start}.yolo-heading-icon{width:46px;height:46px;flex-basis:46px;font-size:24px}.yolo-heading-copy h1{font-size:24px}.yolo-heading-actions{align-items:stretch;flex-direction:column}.yolo-service-state,.yolo-refresh-button{justify-content:center}.yolo-console-frame{height:780px}}

@@ -30,12 +30,56 @@
 - 座標、電量、風險與裝置狀態由 UWB HTTP／MQTT 資料自動更新，管理頁每 5 秒重新顯示最新資料
 - 工地定位頁可拖曳人員圖示來儲存位置
 - PPE 頁可匯入 CSV；可先下載範例 CSV，再依相同欄位準備資料
-- YOLO 串流頁可上傳其他人提供的影片（MP4、WebM、MOV、M4V、OGG）並播放
+- YOLO 頁面會在 SafeGuard 導覽內整合獨立的工地安全監控介面，顯示即時串流、PPE／姿態辨識、人員追蹤與 UWB 範圍
 - 登入頁不提供公開註冊；新帳戶統一由管理員建立
 - 忘記密碼可透過帳戶綁定的電子郵件收取 10 分鐘有效、僅能使用一次的重設連結
 - 管理員也可在「帳戶管理 → 編輯」輸入新密碼，替使用者人工重設
 
 首次執行會在專案資料夾建立 `safeguard.db`。這是 SQLite 資料庫，所有互動後的資料都會保留在裡面。
+
+## SafeGuard 整合 YOLO
+
+YOLO 保留為獨立辨識服務（預設 `127.0.0.1:8001`），SafeGuard 會在已登入的 `/yolo` 頁面代理它的介面、API 與 MJPEG 串流。瀏覽器不需要直接連線 `8001`，因此使用區網 IP 開啟 SafeGuard 時也能正常顯示。
+
+請開啟兩個 PowerShell 視窗：
+
+```powershell
+# 視窗 1：SafeGuard 主系統
+python app.py
+
+# 視窗 2：YOLO 辨識服務
+cd systems\yolo
+.\run-backend.cmd
+```
+
+YOLO 第一次使用請先在 `systems\yolo` 執行 `.\setup.cmd`。若 YOLO 服務不在同一台電腦，請設定 `YOLO_BACKEND_URL`：
+
+```powershell
+$env:YOLO_BACKEND_URL="http://YOLO主機IP:8001"
+python app.py
+```
+
+YOLO 偵測到跌倒、求救、未戴安全帽或未穿反光背心時，會送至 SafeGuard `POST /api/iot/camera`，寫入 SQLite 即時危險警報，並依 LINE 設定自動通知。
+
+## SafeGuard 整合 UWB 電子圍欄
+
+UWB 保留為獨立定位服務（預設 `127.0.0.1:5002`），SafeGuard 會在已登入的 `/site-map` 頁面代理完整的電子圍欄、智慧安全腰帶、裝置狀態與即時警示介面。
+
+請另開一個 PowerShell 視窗啟動 UWB：
+
+```powershell
+cd systems\uwb
+python app.py
+```
+
+若 UWB 服務不在同一台電腦，可在啟動 SafeGuard 前設定：
+
+```powershell
+$env:UWB_BACKEND_URL="http://UWB主機IP:5002"
+python app.py
+```
+
+UWB 定位資料仍會透過 `POST /api/iot/uwb` 寫入 SafeGuard 的 SQLite 即時危險警報，並依 LINE 設定自動通知。
 
 ## NKUST 學校信箱密碼重設信設定
 
