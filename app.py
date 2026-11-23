@@ -3527,6 +3527,11 @@ def sample_people_csv():
     return Response("\ufeff" + content, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=people-import-sample.csv"})
 
 
+# Rail 振動監測子系統：獨立 Blueprint，沿用既有登入驗證，不改動 YOLO / UWB 路由。
+from systems.rail.web import register_rail_routes
+register_rail_routes(app, login_required, current_user)
+
+
 if __name__ == "__main__":
     # host=0.0.0.0 才能讓同一個區域網路內的 ESP32、手機與其他電腦連線。
     start_mqtt_client()
