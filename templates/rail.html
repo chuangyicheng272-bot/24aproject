@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Rail 鐵軌振動監測｜SafeGuard{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='rail.css', v='20261110-1') }}">{% endblock %}
+{% block content %}
+<main class="page rail-page">
+  <div class="rail-nav"><a href="{{ url_for('dashboard') }}">← 返回儀表板</a><span>SafeGuard / Rail Monitoring</span></div>
+  <section class="rail-heading">
+    <div class="rail-heading-copy"><span class="rail-icon">〰️</span><div><p class="rail-kicker">RAIL VIBRATION ANALYSIS</p><h1>鐵軌振動監測</h1><p>追蹤鐵軌影像位移，透過 FFT 分析主頻率、振幅與相位，並比對正常振動基準。</p></div></div>
+    <span id="railState" class="rail-state offline"><i></i><b>尚未啟動</b></span>
+  </section>
+
+  <section class="rail-layout">
+    <div class="rail-main-column">
+      <article class="rail-card">
+        <div class="rail-card-head"><div><h2>影像來源與 ROI 設定</h2><p>先取得影像，再在預覽畫面拖曳框選鐵軌追蹤區域。</p></div></div>
+        <div class="rail-source-row">
+          <label class="rail-field"><span>影像來源</span><select id="railSource"><option value="upload">上傳影片</option><option value="browser">瀏覽器攝影機</option><option value="server">伺服器連接攝影機</option></select></label>
+          <label class="rail-field"><span>分析方向</span><select id="railDirection"><option value="y">垂直位移 Y</option><option value="x">水平位移 X</option><option value="xy">合成位移 XY</option></select></label>
+          <label class="rail-field"><span>影格率 (FPS)</span><input id="railFps" type="number" min="1" max="120" value="30"></label>
+        </div>
+        <div id="railUploadControls" class="rail-source-controls"><label class="rail-file"><span>選擇影片檔案</span><input id="railVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/ogg,.m4v"></label><small>影片會在目前瀏覽器本機播放，擷取影格後傳送至 Flask 分析，不會將整段影片永久存放在伺服器。</small></div>
+        <div id="railBrowserControls" class="rail-source-controls" hidden><button id="railCameraButton" class="rail-button secondary" type="button">開啟瀏覽器攝影機</button><small>瀏覽器攝影機需要 HTTPS（或 localhost）及使用者授權。</small></div>
+        <div id="railServerControls" class="rail-source-controls" hidden><label class="rail-field compact"><span>伺服器攝影機編號</span><input id="railDeviceIndex" type="number" min="0" max="4" value="0"></label><button id="railServerPreviewButton" class="rail-button secondary" type="button">取得伺服器攝影機預覽</button></div>
+        <div class="rail-preview-wrap"><div class="rail-preview-top"><strong>影像預覽 / ROI 框選</strong><span id="railPreviewHint">請先選擇影像來源</span></div><div class="rail-canvas-wrap"><canvas id="railCanvas" aria-label="影像預覽與 ROI 選取"></canvas><div id="railCanvasPlaceholder">尚未載入影像</div></div><video id="railVideo" playsinline muted hidden></video></div>
+        <div class="rail-action-row"><button id="railStartButton" class="rail-button primary" type="button" disabled>開始振動分析</button><button id="railStopButton" class="rail-button danger" type="button" disabled>停止分析</button><button id="railClearButton" class="rail-button secondary" type="button">清除 ROI</button></div>
+        <p id="railMessage" class="rail-message" role="status">請先載入影片或影像來源，再框選至少 20 × 20 像素的鐵軌區域。</p>
+      </article>
+
+      <article class="rail-card">
+        <div class="rail-card-head"><div><h2>頻率分析結果</h2><p>分析使用目前收集到的位移樣本；頻率解析度受取樣時間長度影響。</p></div><button id="railAnalyzeButton" class="rail-button secondary" type="button" disabled>立即分析</button></div>
+        <div class="rail-metrics">
+          <div class="rail-metric"><span>主頻率</span><strong id="railFrequency">--<small>Hz</small></strong></div>
+          <div class="rail-metric"><span>振幅</span><strong id="railAmplitude">--<small>px</small></strong></div>
+          <div class="rail-metric"><span>相位</span><strong id="railPhase">--<small>°</small></strong></div>
+          <div class="rail-metric"><span>位移 RMS</span><strong id="railRms">--<small>px</small></strong></div>
+        </div>
+        <div class="rail-analysis-foot"><span>取樣率：<b id="railSampleRate">--</b></span><span>SNR：<b id="railSnr">--</b></span><span>追蹤信心：<b id="railConfidence">--</b></span><span>樣本數：<b id="railSampleCount">0</b></span></div>
+        <div class="rail-baseline-status" id="railBaselineStatus">尚未載入正常振動基準</div>
+        <div id="railTopPeaks" class="rail-peaks">尚無頻率峰值資料</div>
+      </article>
+    </div>
+
+    <aside class="rail-side-column">
+      <article class="rail-card"><div class="rail-card-head"><div><h2>正常振動基準</h2><p>依標籤記錄正常樣本，使用平均值 ± 3σ 建立頻率範圍。</p></div></div>
+        <label class="rail-field"><span>樣本標籤</span><input id="railBaselineLabel" type="text" maxlength="40" value="normal"></label>
+        <div class="rail-stack-actions"><button id="railRecordBaseline" class="rail-button secondary" type="button" disabled>記錄目前正常樣本</button><button id="railBuildBaseline" class="rail-button secondary" type="button" disabled>建立 / 更新基準</button></div>
+        <p class="rail-help">至少需要 2 筆同標籤樣本，才會計算樣本標準差與 ±3σ 範圍。基準資料依登入帳戶分開儲存。</p>
+      </article>
+      <article class="rail-card rail-status-card"><div class="rail-card-head"><div><h2>追蹤狀態</h2><p>即時顯示最後一個處理影格的狀態。</p></div></div>
+        <dl><div><dt>追蹤狀態</dt><dd id="railTrackStatus">等待初始化</dd></div><div><dt>背景補償</dt><dd id="railShakeStatus">--</dd></div><div><dt>影像模糊</dt><dd id="railBlurStatus">--</dd></div><div><dt>ROI</dt><dd id="railRoiStatus">--</dd></div></dl>
+      </article>
+    </aside>
+  </section>
+</main>
+<script src="{{ url_for('static', filename='rail.js', v='20261110-1') }}" defer></script>
+{% endblock %}

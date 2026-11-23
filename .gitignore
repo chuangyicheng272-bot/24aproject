@@ -22,3 +22,16 @@ reports/qa/
 reports/render-temp/
 .DS_Store
 Thumbs.db
+# Rail integration temporary files and backups
+*.backup
+rail_patch/
+rail_baseline_temp/
+rail_engine_update/
+rail_update_temp/
+rail_core_review.txt
+
+# Backup Python files
+*_backup.py
+
+# Kiro local configuration
+.kiro/
